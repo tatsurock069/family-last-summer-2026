@@ -10,9 +10,9 @@
   <meta name="apple-mobile-web-app-title" content="ラストサマー">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./assets/icons/icon-180.png">
-  <link rel="stylesheet" href="./assets/css/style.css?v=7">
-  <link rel="stylesheet" href="./assets/css/last-summer.css?v=7">
-  <script src="./assets/js/app.js?v=7" defer></script>
+  <link rel="stylesheet" href="./assets/css/style.css?v=9">
+  <link rel="stylesheet" href="./assets/css/last-summer.css?v=9">
+  <script src="./assets/js/app.js?v=9" defer></script>
   <title>関家 ラストサマー2026</title>
 </head>
 <body>
@@ -51,8 +51,8 @@
       <section class="editorial-section">
         <div class="editorial-head"><div><p class="kicker dark">TWO-DAY STORY</p><h2>最後の週末、二つの夏。</h2></div></div>
         <div class="feature-pair summer-feature-pair">
-          <button type="button" class="feature-card night-feature" data-go="plan"><img class="feature-photo" src="./assets/images/destinations/ikoma-attraction.jpg" alt="生駒山上遊園地のアトラクション"><span class="feature-index">DAY 1</span><span class="feature-copy"><b>山上のナイター</b><small>夕暮れ、アトラクション、夜景。</small></span></button>
-          <button type="button" class="feature-card sea-feature" data-go="plan"><img class="feature-photo" src="./assets/images/destinations/wakasa-wada-beach.jpg" alt="若狭和田ビーチの白い砂浜と透明な海"><span class="feature-index">DAY 2</span><span class="feature-copy"><b>若狭和田ビーチ</b><small>子どもの体力が尽きるまで。</small></span></button>
+          <button type="button" class="feature-card night-feature" data-go="plan" data-stage-day="day1"><img class="feature-photo" src="./assets/images/destinations/ikoma-attraction.jpg" alt="生駒山上遊園地のアトラクション"><span class="feature-index">DAY 1</span><span class="feature-copy"><b>山上のナイター</b><small>夕暮れ、アトラクション、夜景。</small></span></button>
+          <button type="button" class="feature-card sea-feature" data-go="plan" data-stage-day="day2"><img class="feature-photo" src="./assets/images/destinations/wakasa-wada-beach.jpg" alt="若狭和田ビーチの白い砂浜と透明な海"><span class="feature-index">DAY 2</span><span class="feature-copy"><b>若狭和田ビーチ</b><small>子どもの体力が尽きるまで。</small></span></button>
         </div>
       </section>
 
@@ -131,7 +131,7 @@
         <div class="mission-summary-copy"><div class="mission-summary-head"><p class="kicker" id="missionRankKicker">YOUR RANK</p></div><h2 id="missionRank">ラストサマー・ルーキー</h2><p id="missionProgressText">0 / 75 ミッション</p><p id="missionNextRank">あと5個でランクアップ</p><div class="mission-profile-identity"><span id="missionModeBadge">記録中</span><b id="missionPlayerName">優典</b></div></div>
         <button type="button" id="toggleMissionResult" class="mission-status-toggle" aria-expanded="false"><span>達成状況を確認</span><i aria-hidden="true">›</i></button>
       </section>
-      <div id="missionProfiles" class="mission-profile-tabs" aria-label="メンバー選択"></div>
+      <div id="missionProfiles" class="mission-profile-tabs" aria-label="ログイン中のユーザー" hidden></div>
       <div id="missionCategories" class="mission-tabs" aria-label="ミッションカテゴリ"></div>
       <section class="mission-result" id="missionResult" hidden><div class="section-title"><div><p class="kicker dark" id="missionResultKicker">RESULT</p><h2 id="missionResultTitle">優典の記録</h2></div><strong id="missionResultScore">0 CLEAR</strong></div><p id="missionResultSummary">ラストサマー・ルーキー · 0 XP</p><div id="missionResultList"></div><p class="mission-result-note" id="missionResultNote">この端末内に保存された記録です。</p></section>
       <div id="missionList" class="mission-grid"></div>
@@ -168,6 +168,7 @@
     <div class="screen-content">
       <div id="moreTop" class="subview active">
         <div class="more-menu">
+          <button type="button" id="changeUser"><span>人</span><div><b>使う人</b><small id="currentUserLabel">未選択</small></div><i>→</i></button>
           <button type="button" data-go="shopping"><span>買</span><div><b>買い出し</b><small id="moreShoppingProgress">0 / 0</small></div><i>→</i></button>
           <button type="button" data-subview="budgetView"><span>¥</span><div><b>予算・実費</b><small>25,000円チャレンジ</small></div><i>→</i></button>
           <button type="button" data-subview="packingView"><span>✓</span><div><b>持ち物</b><small id="morePackingProgress">0 / 0</small></div><i>→</i></button>
@@ -210,6 +211,19 @@
   </nav>
 </main>
 <button type="button" id="backToTop" class="back-to-top" aria-label="ページ上部へ"><span>↑</span>TOP</button>
+<div class="app-modal user-login-modal" id="userLoginModal" aria-hidden="true">
+  <div class="modal-backdrop"></div>
+  <section class="modal-card user-login-card" role="dialog" aria-modal="true" aria-labelledby="userLoginTitle">
+    <p class="kicker dark">WHO IS USING?</p><h2 id="userLoginTitle">つかう ひとを えらんでね</h2><p class="modal-description">えらんだ ひとに あわせて、ことばと みっしょんが かわります。</p>
+    <div class="user-choice-grid">
+      <button type="button" data-login-user="yusuke"><b>優典</b><small>中学2年</small></button>
+      <button type="button" data-login-user="ayana"><b>綾菜</b><small>小学6年</small></button>
+      <button type="button" data-login-user="keisuke"><b>慶典</b><small>小学3年</small></button>
+      <button type="button" data-login-user="anna"><b>あんな</b><small>ようちえん</small></button>
+      <button type="button" data-login-user="haruna"><b>はるな</b><small>おとなと いっしょ</small></button>
+    </div>
+  </section>
+</div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
 </html>

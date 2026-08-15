@@ -15,6 +15,17 @@ document.addEventListener('DOMContentLoaded', () => {
       catch { return false; }
     }
   };
+  const appUsers = [
+    {id:'yusuke',label:'優典',mission:'優典',toddler:false},{id:'ayana',label:'綾菜',mission:'綾菜',toddler:false},{id:'keisuke',label:'慶典',mission:'慶典',toddler:false},
+    {id:'anna',label:'あんな',mission:'杏菜',toddler:true},{id:'haruna',label:'はるな',mission:'波瑠菜',toddler:true,assisted:true}
+  ];
+  let selectedUserId = storage.get('current-user', null);
+  let currentUser = appUsers.find((user) => user.id === selectedUserId) || appUsers[0];
+  const isToddlerUser = () => Boolean(currentUser.toddler);
+  const isAssistedUser = () => Boolean(currentUser.assisted);
+  const day1Complete = new Date() >= new Date('2026-08-15T21:00:00+09:00');
+  document.body.classList.toggle('toddler-app', isToddlerUser());
+  document.body.classList.toggle('stage-day2', day1Complete);
 
   let toastTimer;
   function toast(message) {
@@ -58,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Destination guide navigation and filtering
   function filterGuide(day = 'all') {
     document.querySelectorAll('[data-guide-filter]').forEach((button) => button.classList.toggle('active', button.dataset.guideFilter === day));
-    document.querySelectorAll('.destination-card').forEach((card) => { card.hidden = day !== 'all' && card.dataset.guideDay !== day; });
+    document.querySelectorAll('.destination-card').forEach((card) => { card.hidden = (day1Complete && card.dataset.guideDay === 'day1') || (day !== 'all' && card.dataset.guideDay !== day); });
   }
   document.querySelectorAll('[data-guide-filter]').forEach((button) => button.addEventListener('click', () => filterGuide(button.dataset.guideFilter)));
   document.getElementById('guideBack')?.addEventListener('click', () => showScreen(guideReturnScreen));
@@ -71,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function setDay(section, open) {
     const button = section.querySelector('.day-inline-toggle'); const panel = section.querySelector('.day-content');
     button.setAttribute('aria-expanded', String(open)); button.querySelector('i').textContent = open ? '⌃' : '⌄';
-    button.setAttribute('aria-label', `${section.dataset.tripDay}日目を${open ? '閉じる' : '開く'}`);
+    button.setAttribute('aria-label', isToddlerUser() ? `${section.dataset.tripDay === '2' ? 'ふつかめ' : 'いちにちめ'}を ${open ? 'とじる' : 'ひらく'}` : `${section.dataset.tripDay}日目を${open ? '閉じる' : '開く'}`);
     panel.hidden = !open; section.classList.toggle('open', open);
   }
   document.querySelectorAll('.trip-day-section').forEach((section) => {
@@ -79,6 +90,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   const todayTokyo = new Intl.DateTimeFormat('sv-SE', {timeZone:'Asia/Tokyo', year:'numeric', month:'2-digit', day:'2-digit'}).format(new Date());
   if (todayTokyo === '2026-08-16') document.querySelectorAll('.trip-day-section').forEach((section) => setDay(section, section.dataset.tripDay === '2'));
+  if (day1Complete) {
+    document.querySelector('[data-trip-day="1"]')?.setAttribute('hidden', ''); document.querySelector('[data-stage-day="day1"]')?.setAttribute('hidden', '');
+    const dayTwo = document.querySelector('[data-trip-day="2"]'); if (dayTwo) setDay(dayTwo, true);
+    document.querySelector('[data-guide-filter="day1"]')?.setAttribute('hidden', ''); filterGuide('all');
+  }
 
   // Home next action
   const schedule = [
@@ -92,16 +108,27 @@ document.addEventListener('DOMContentLoaded', () => {
     ['2026-08-16T15:00:00+09:00','8/16 〜15:00','体力を見て海を終了','着替え、忘れ物、ゴミを確認して天下茶屋へ直帰。','天下茶屋'],
     ['2026-08-16T18:30:00+09:00','8/16 夕方','自宅（天下茶屋）へ帰宅','ラストサマー完走。撮った写真をみんなで見よう。','天下茶屋']
   ];
+  const toddlerSchedule = [
+    ['2026-08-15T14:00:00+09:00','8/15 14:00','おうちを でる','わすれものを みて、おはかへ いこう。','生玉霊園'],
+    ['2026-08-15T14:20:00+09:00','8/15 14:20','おはかで てを あわせる','おわったら、やまの ゆうえんちへ いこう。','生玉霊園'],
+    ['2026-08-15T15:30:00+09:00','8/15 15:30','やまの ゆうえんち','のりたいものを ひとつ えらぼう。','生駒山上遊園地'],
+    ['2026-08-15T20:30:00+09:00','8/15 よる','おうちで うどん','たべたら、うみの じゅんびを しよう。','天下茶屋'],
+    ['2026-08-16T06:30:00+09:00','8/16 06:30','うみへ しゅっぱつ','おべんとうと のみものを くるまに のせよう。','若狭和田ビーチ'],
+    ['2026-08-16T08:30:00+09:00','8/16 08:30','うみに つく','おとなと いっしょに じゅんびしよう。','若狭和田ビーチ'],
+    ['2026-08-16T12:00:00+09:00','8/16 12:00','おべんとう','かげで やすんで、おみずを のもう。','若狭和田ビーチ'],
+    ['2026-08-16T15:00:00+09:00','8/16 15:00ごろ','うみを おわる','つかれたら はやめに おわろう。','天下茶屋'],
+    ['2026-08-16T18:30:00+09:00','8/16 ゆうがた','おうちに つく','たのしかったことを はなそう。','天下茶屋']
+  ];
   function updateNextAction() {
-    const now = new Date(); let next = schedule.find((item) => new Date(item[0]) > now);
+    const now = new Date(); const activeSchedule = isToddlerUser() ? toddlerSchedule : schedule; let next = activeSchedule.find((item) => new Date(item[0]) > now);
     if (!next) {
-      document.getElementById('nextStatus').textContent = 'COMPLETE'; document.getElementById('nextCountdown').textContent = '完走';
-      document.getElementById('nextTime').textContent = 'AUG 15—16'; document.getElementById('nextTitle').textContent = 'ラストサマー、完走。';
-      document.getElementById('nextDescription').textContent = '家族7人の夏の記録をゆっくり振り返ろう。'; document.getElementById('nextMap').hidden = true; return;
+      document.getElementById('nextStatus').textContent = isToddlerUser() ? 'おしまい' : 'COMPLETE'; document.getElementById('nextCountdown').textContent = isToddlerUser() ? 'できた！' : '完走';
+      document.getElementById('nextTime').textContent = '8/15—16'; document.getElementById('nextTitle').textContent = isToddlerUser() ? 'なつを たのしんだよ。' : 'ラストサマー、完走。';
+      document.getElementById('nextDescription').textContent = isToddlerUser() ? 'たのしかったことを みんなで はなそう。' : '家族7人の夏の記録をゆっくり振り返ろう。'; document.getElementById('nextMap').hidden = true; return;
     }
     const diff = new Date(next[0]) - now; const hours = Math.floor(diff / 3600000); const mins = Math.max(0, Math.floor((diff % 3600000) / 60000));
-    document.getElementById('nextStatus').textContent = 'NEXT ACTION';
-    document.getElementById('nextCountdown').textContent = diff < 86400000 ? (hours ? `あと${hours}時間${mins}分` : `あと${mins}分`) : `${Math.ceil(diff / 86400000)}日後`;
+    document.getElementById('nextStatus').textContent = isToddlerUser() ? 'つぎ' : 'NEXT ACTION';
+    document.getElementById('nextCountdown').textContent = isToddlerUser() ? (diff < 86400000 ? (hours ? `あと${hours}じかん${mins}ふん` : `あと${mins}ふん`) : `あと${Math.ceil(diff / 86400000)}にち`) : (diff < 86400000 ? (hours ? `あと${hours}時間${mins}分` : `あと${mins}分`) : `${Math.ceil(diff / 86400000)}日後`);
     document.getElementById('nextTime').textContent = next[1]; document.getElementById('nextTitle').textContent = next[2]; document.getElementById('nextDescription').textContent = next[3];
     const map = document.getElementById('nextMap'); map.hidden = false; map.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(next[4])}`;
   }
@@ -115,19 +142,25 @@ document.addEventListener('DOMContentLoaded', () => {
     ['snacks','snack','お菓子','車内・海休憩用'],['salt','snack','塩分タブレット','予備'],['bags','snack','ゴミ袋','濡れ物にも使う']
   ].map(([id,category,name,qty]) => ({id,category,name,qty,custom:false}));
   const shoppingLabels = {day1:'DAY1 · 帰宅後ごはん',bento:'DAY2 · 弁当',drink:'飲み物・冷却',snack:'お菓子・その他'};
+  const toddlerShoppingLabels = {day1:'よるの ごはん',bento:'おべんとう',drink:'のみもの',snack:'おかしと ふくろ'};
+  const toddlerShoppingCopy = {
+    rice:['おべんとうの ごはん','7にんぶん'],'bento-main':['おべんとうの おかず','わるくなりにくいもの'],'bento-side':['しおあじの おかず','うめぼし など'],'fruit':['くだもの','ひやせるぶんだけ'],
+    water:['おみずと おちゃ','おおめ'],'sports':['すぽーつどりんく','あつさの ため'],'ice':['こおり','くーらーぼっくすへ'],'snacks':['おかし','くるまと うみで'],'salt':['しおの たぶれっと','よび'],'bags':['ごみぶくろ','ぬれたものにも']
+  };
   let shoppingItems = storage.get('shopping-items', shoppingDefaults);
   let shoppingDone = storage.get('shopping-done', {});
   function renderShopping() {
     const root = document.getElementById('shoppingList'); root.innerHTML = '';
-    Object.entries(shoppingLabels).forEach(([key,label]) => {
+    Object.entries(isToddlerUser() ? toddlerShoppingLabels : shoppingLabels).forEach(([key,label]) => {
+      if (day1Complete && key === 'day1') return;
       const items = shoppingItems.filter((item) => item.category === key); if (!items.length) return;
       const section = document.createElement('section'); section.className = 'simple-check-group';
-      section.innerHTML = `<h2>${escapeHTML(label)}</h2><div class="simple-check-list">${items.map((item) => `<div class="simple-check-row ${shoppingDone[item.id] ? 'done' : ''}"><input type="checkbox" data-shopping-check="${escapeHTML(item.id)}" ${shoppingDone[item.id] ? 'checked' : ''} aria-label="${escapeHTML(item.name)}"><div><b>${escapeHTML(item.name)}</b><small>${escapeHTML(item.qty || '数量未設定')}</small></div><div class="row-actions">${item.custom ? `<button type="button" class="danger" data-shopping-delete="${escapeHTML(item.id)}">削除</button>` : ''}</div></div>`).join('')}</div>`;
+      section.innerHTML = `<h2>${escapeHTML(label)}</h2><div class="simple-check-list">${items.map((item) => { const copy = isToddlerUser() && toddlerShoppingCopy[item.id]; const name = copy?.[0] || item.name; const qty = copy?.[1] || item.qty || (isToddlerUser() ? 'かずは まだ' : '数量未設定'); return `<div class="simple-check-row ${shoppingDone[item.id] ? 'done' : ''}"><input type="checkbox" data-shopping-check="${escapeHTML(item.id)}" ${shoppingDone[item.id] ? 'checked' : ''} aria-label="${escapeHTML(name)}"><div><b>${escapeHTML(name)}</b><small>${escapeHTML(qty)}</small></div><div class="row-actions">${item.custom ? `<button type="button" class="danger" data-shopping-delete="${escapeHTML(item.id)}">${isToddlerUser() ? 'けす' : '削除'}</button>` : ''}</div></div>`; }).join('')}</div>`;
       root.appendChild(section);
     });
     root.querySelectorAll('[data-shopping-check]').forEach((input) => input.addEventListener('change', () => { shoppingDone[input.dataset.shoppingCheck] = input.checked; storage.set('shopping-done', shoppingDone); renderShopping(); }));
     root.querySelectorAll('[data-shopping-delete]').forEach((button) => button.addEventListener('click', () => { shoppingItems = shoppingItems.filter((item) => item.id !== button.dataset.shoppingDelete); delete shoppingDone[button.dataset.shoppingDelete]; storage.set('shopping-items', shoppingItems); storage.set('shopping-done', shoppingDone); renderShopping(); toast('項目を削除しました'); }));
-    const completed = shoppingItems.filter((item) => shoppingDone[item.id]).length; const total = shoppingItems.length; const percentage = total ? completed / total * 100 : 0;
+    const activeShoppingItems = shoppingItems.filter((item) => !(day1Complete && item.category === 'day1')); const completed = activeShoppingItems.filter((item) => shoppingDone[item.id]).length; const total = activeShoppingItems.length; const percentage = total ? completed / total * 100 : 0;
     document.getElementById('shoppingProgressLabel').textContent = `${completed} / ${total}`; document.getElementById('shoppingProgressBar').style.width = `${percentage}%`; document.getElementById('moreShoppingProgress').textContent = `${completed} / ${total}`;
   }
   document.getElementById('addShoppingForm').addEventListener('submit', (event) => {
@@ -159,16 +192,24 @@ document.addEventListener('DOMContentLoaded', () => {
     ['tired-car','day2','C','帰りの疲れた車内','眠っている手元や足元へ静かに寄る。顔を無理に撮らず起こさない。','横動画 · 5秒 · 無言',false],
     ['ending','day2','V','帰宅のひと言','玄関前で胸から上。目線をレンズに合わせ、一番楽しかったことを一言。','縦動画 · 10秒以内',true]
   ].map(([id,day,frame,name,composition,format,must]) => ({id,day,frame,name,composition,format,must}));
+  const toddlerShotCopy = {
+    'early-start':['🎒','にもつを ゆびさす','じゅんび できた！と いおう'],'sea-first-look':['👀','うみを みつける','うみ！と いちばんに おしえよう'],'wada-arrival':['👋','うみに あいさつ','うみに こんにちはを しよう'],
+    'run-to-sea':['🚶','うみまで あるく','おとなと いっしょに ゆっくり いこう'],'water':['🌊','なみに さわる','おとなの そばで あしを つけよう'],'wave-sound':['👂','なみの おとを きく','しずかに じゅう かぞえよう'],
+    'bento':['🍱','おべんとうを みせる','いただきますを いおう'],'sand-art':['🏖️','すなで つくる','できたものを みんなに みせよう'],'family-photo':['😊','みんなで にっこり','おとなが とるときに えがおを みせよう'],
+    'tired-car':['😴','くるまで やすむ','つかれたら ゆっくり しよう'],'ending':['🙌','たのしかったと いう','いちばん たのしかったことを いおう']
+  };
   let shotDone = storage.get('shots', {}); let shotFilter = 'all';
   function renderShots() {
     const root = document.getElementById('shotList'); root.innerHTML = '';
-    [['day1','DAY 1 · 墓参りとナイター'],['day2','DAY 2 · 若狭和田ビーチ']].forEach(([day,label]) => {
+    [['day1','DAY 1 · 墓参りとナイター'],['day2',isToddlerUser() ? 'うみで やってみよう' : 'DAY 2 · 若狭和田ビーチ']].forEach(([day,label]) => {
+      if (day1Complete && day === 'day1') return;
       const items = shotItems.filter((item) => item.day === day && (shotFilter === 'all' || (shotFilter === 'must' && item.must) || (shotFilter === 'open' && !shotDone[item.id]))); if (!items.length) return;
       const section = document.createElement('section'); section.className = 'shot-category';
-      section.innerHTML = `<div class="shot-category-head"><div><p class="kicker dark">${day.toUpperCase()}</p><h2>${label}</h2></div><span>${items.filter((item) => shotDone[item.id]).length} / ${items.length}</span></div><div class="shot-category-body">${items.map((item) => `<article class="shot-card ${shotDone[item.id] ? 'checked' : ''}"><label class="shot-check-main"><span class="shot-frame">${item.frame}</span><span class="shot-copy"><span class="shot-badges"><em class="${item.must ? 'priority-must' : 'priority-bonus'}">${item.must ? 'MUST' : 'BONUS'}</em><em>構図 ${item.frame}</em></span><b>${escapeHTML(item.name)}</b><p>${escapeHTML(item.composition)}</p><small>${escapeHTML(item.format)}</small></span><input type="checkbox" data-shot-id="${item.id}" ${shotDone[item.id] ? 'checked' : ''} aria-label="${escapeHTML(item.name)}を撮影済みにする"></label></article>`).join('')}</div>`; root.appendChild(section);
+      section.innerHTML = `<div class="shot-category-head"><div><p class="kicker dark">${isToddlerUser() ? 'あした' : day.toUpperCase()}</p><h2>${label}</h2></div><span>${items.filter((item) => shotDone[item.id]).length} / ${items.length}</span></div><div class="shot-category-body">${items.map((item) => { const copy = isToddlerUser() ? toddlerShotCopy[item.id] : null; const frame = copy?.[0] || item.frame; const name = copy?.[1] || item.name; const direction = copy?.[2] || item.composition; const format = isToddlerUser() ? 'おとなと いっしょ' : item.format; return `<article class="shot-card ${shotDone[item.id] ? 'checked' : ''}"><label class="shot-check-main"><span class="shot-frame">${frame}</span><span class="shot-copy"><span class="shot-badges"><em class="${item.must ? 'priority-must' : 'priority-bonus'}">${isToddlerUser() ? (item.must ? 'やってみよう' : 'できたら') : (item.must ? 'MUST' : 'BONUS')}</em></span><b>${escapeHTML(name)}</b><p>${escapeHTML(direction)}</p><small>${escapeHTML(format)}</small></span><input type="checkbox" data-shot-id="${item.id}" ${shotDone[item.id] ? 'checked' : ''} aria-label="${escapeHTML(name)}"></label></article>`; }).join('')}</div>`; root.appendChild(section);
     });
     root.querySelectorAll('[data-shot-id]').forEach((input) => input.addEventListener('change', () => { shotDone[input.dataset.shotId] = input.checked; storage.set('shots', shotDone); renderShots(); }));
-    const completed = shotItems.filter((item) => shotDone[item.id]).length; const total = shotItems.length;
+    const activeShotItems = shotItems.filter((item) => !(day1Complete && item.day === 'day1'));
+    const completed = activeShotItems.filter((item) => shotDone[item.id]).length; const total = activeShotItems.length;
     document.getElementById('shootProgress').textContent = `${completed} / ${total}`; document.getElementById('shootProgressBar').style.width = `${completed / total * 100}%`;
   }
   document.querySelectorAll('[data-shot-filter]').forEach((button) => button.addEventListener('click', () => { shotFilter = button.dataset.shotFilter; document.querySelectorAll('[data-shot-filter]').forEach((item) => item.classList.toggle('active', item === button)); renderShots(); }));
@@ -271,24 +312,24 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   const preschoolMissionTitles = {
     'seatbelt':'しーとべるとを かくにんする','own-drink':'じぶんの のみものを もつ','own-bag':'じぶんの かばんを もつ','thank-driver':'うんてん ありがとうを いう','car-song':'くるまで みんなと うたう',
-    'window-find':'まどから みつけたものを はなす','rest-stretch':'きゅうけいで からだを のばす','next-plan':'つぎの よていを おぼえる','keep-clean':'くるまを きれいに する','kind-word':'きょうだいに やさしく いう',
-    'help':'こまっているひとを てつだう','greeting':'えがおで あいさつする','timekeeper':'あつまる じかんを おしえる','weather-watch':'そらの へんかを みつける','best-memory':'きょうの いちばんを はなす',
+    'window-find':'まどから みつけたものを はなす','rest-stretch':'きゅうけいで からだを のばす','next-plan':'つぎは どこ？と きく','keep-clean':'ごみを ひとつ ふくろに いれる','kind-word':'きょうだいに やさしく いう',
+    'help':'おてつだい する？と きく','greeting':'えがおで あいさつする','timekeeper':'いま なんじ？と きく','weather-watch':'そらを みる','best-memory':'すきだったものを いう',
     'respect':'おはかで しずかに てを あわせる','quiet-minute':'しずかに いっぷん すごす','family-memory':'かぞくの おもいでを ひとつ きく','grave-help':'おはかまいりを てつだう','day1-departure':'いちにちめの しゅっぱつを もりあげる',
     'choice':'のりたいものを じぶんで えらぶ','budget-choice':'おかねを かんがえて えらぶ','ikoma-sign':'ゆうえんちの かんばんを みつける','ride-reaction':'のりものの きもちを はなす','sunset':'ゆうやけの いろを みっつ みつける',
     'night':'きれいな よぞらを みつける','light-count':'よるの ひかりを いつつ さがす','mountain-air':'やまの かぜを かんじる','family-ride':'だれかの ちょうせんを おうえんする','udon-help':'うどんづくりを てつだう',
-    'early-wake':'あさ はやく おきる','load-car':'うみの にもつを ひとつ はこぶ','sea-first-look':'うみを いちばんに みつける','first':'げんきに うみへ むかう','sea':'うみの あんぜんを まもる',
-    'sunscreen':'ひやけどめを ぬる','lifejacket':'あんぜんの どうぐを かくにんする','wave-jump':'なみを いっかい じゃんぷする','shell':'きれいな かいがらを さがす','sea-color':'うみの いろに なまえを つける',
-    'art':'すなはまで さくひんを つくる','sand-message':'すなに なつの ことばを かく','bento-help':'おべんとうの じゅんびを てつだう','hydrate':'じぶんから おみずを のむ','safety-check':'かぞくの げんきを きにかける',
-    'beach-support':'うみで だれかを てつだう','beach-clean':'すなはまの ごみを ひとつ ひろう','family-line':'うみで ななにん ならぶ','cold-check':'さむくなるまえに やすむ','final-look':'うみに さいごの あいさつを する',
-    'support':'ちいさいこを いっかい てつだう','laugh':'かぞくの だれかを わらわせる','photo':'かぞくの いちばんの しゃしんを とる','parent-photo':'おやと ふたりで しゃしんを とる','sibling-photo':'きょうだいで しゃしんに はいる',
-    'compliment':'かぞくの いいところを いう','thank-you':'かぞくに ありがとうを いう','high-five':'きょうだい ぜんいんと はいたっち','cheer':'だれかの ちょうせんを おうえんする','share-snack':'おかしを わけあう',
-    'listen':'かぞくの はなしを さいごまで きく','wait-family':'おくれている かぞくを まつ','family-joke':'かぞくの おもしろい はなしを つくる','team-name':'きょうの かぞくの なまえを きめる','summer-promise':'らいねんの なつに したいことを はなす',
-    'opening-shot':'たびの はじまりを とる','road-audio':'くるまの おはなしを じゅうびょう とる','arrival-talk':'ついたときの ひとことを とる','sunset-movie':'ゆうやけを じゅうびょう とる','ride-movie':'のりものの かおを とる',
-    'night-wide':'よるの けしきを よこで とる','sea-reveal':'うみが みえた しゅんかんを とる','wave-slow':'なみを ひくい ところから とる','lunch-top':'おべんとうを うえから とる','ending-shot':'たびの おわりの ひとことを とる'
+    'early-wake':'おはようを いう','load-car':'かるい にもつを ひとつ はこぶ','sea-first-look':'うみが みえたら おしえる','first':'おとなと いっしょに うみへ いく','sea':'おとなの そばに いる',
+    'sunscreen':'ひやけどめを ぬってもらう','lifejacket':'あんぜんの どうぐを つけてもらう','wave-jump':'おとなと なみに さわる','shell':'すきな かいがらを みつける','sea-color':'すきな いろを みつける',
+    'art':'すなで なにかを つくる','sand-message':'すなに まるを かく','bento-help':'おはしを くばる','hydrate':'おみずを のむ','safety-check':'つかれたら おとなに いう',
+    'beach-support':'どうぞと いう','beach-clean':'おとなと ごみを ひろう','family-line':'みんなで にっこりする','cold-check':'さむいと いえる','final-look':'うみに ばいばいする',
+    'support':'ちいさいこに だいじょうぶ？と きく','laugh':'おもしろい かおを する','photo':'しゃしんで にっこりする','parent-photo':'おやと にっこりする','sibling-photo':'きょうだいと ならぶ',
+    'compliment':'だいすきと いう','thank-you':'ありがとうを いう','high-five':'きょうだいと はいたっち','cheer':'がんばれ！と いう','share-snack':'おかしを どうぞする',
+    'listen':'おはなしを きく','wait-family':'みんなを まつ','family-joke':'おもしろい かおを する','team-name':'みんなで えいえいおーを する','summer-promise':'また うみに いこうと いう',
+    'opening-shot':'はじまりに ぴーすする','road-audio':'くるまで おしゃべりする','arrival-talk':'ついたら やったーと いう','sunset-movie':'ゆうやけを みる','ride-movie':'のりものの かおを みせる',
+    'night-wide':'よるの ひかりを みつける','sea-reveal':'うみが みえたら おしえる','wave-slow':'なみに こんにちはする','lunch-top':'おべんとうを みせる','ending-shot':'たのしかったと いう'
   };
   const missionRanks = ['ラストサマー・ルーキー','発見ハンター','お手伝いスター','山上チャレンジャー','夜景ハンター','サマー・プレイヤー','海の探検員','波乗りチャレンジャー','砂浜クリエイター','家族のムードメーカー','撮影クルー','思いやりリーダー','夏の冒険エース','ラストサマー隊長','関家サマーマスター','完全燃焼マスター'];
   const preschoolMissionRanks = ['はじめての なつやすみ','はっけん るーきー','おてつだい すたー','やまの ちょうせんたい','よぞらの はんたー','なつの あそびにん','うみの たんけんたい','なみの ちょうせんたい','すなはま くりえいたー','かぞくの にんきもの','さつえい くるー','おもいやり りーだー','なつの ぼうけん えーす','らすとさまー たいちょう','せきけの なつめいじん','なつの だいめいじん'];
-  let activeProfile = storage.get('mission-profile', '優典'); let missionDone = storage.get('missions', {});
+  let activeProfile = currentUser.mission; let missionDone = storage.get('missions', {});
   let activeMissionCategory = 'all';
   function profileState(name) { if (!missionDone[name]) missionDone[name] = {}; return missionDone[name]; }
   function missionForProfile(item) {
@@ -298,55 +339,59 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function missionXp(item) { return item.category === 'common' ? 10 : item.category === 'creator' ? 15 : 20; }
   function renderMissions() {
-    const preschool = Boolean(missionProfiles[activeProfile]?.young); const assisted = activeProfile === '波瑠菜';
-    const tabs = document.getElementById('missionProfiles'); tabs.innerHTML = Object.keys(missionProfiles).map((name) => `<button type="button" class="${name === activeProfile ? 'active' : ''}" data-profile="${name}">${name}</button>`).join('');
-    tabs.querySelectorAll('[data-profile]').forEach((button) => button.addEventListener('click', () => { activeProfile = button.dataset.profile; storage.set('mission-profile', activeProfile); renderMissions(); }));
-    const categoryLabels = preschool ? {all:'すべて',common:'どこでも',day1:'いちにちめ',day2:'ふつかめ',family:'かぞく',creator:'さつえい'} : {all:'すべて',...missionCategories};
-    const categoryTabs = document.getElementById('missionCategories'); categoryTabs.innerHTML = `<button type="button" class="${activeMissionCategory === 'all' ? 'active' : ''}" data-mission-category="all">${categoryLabels.all}</button>${Object.keys(missionCategories).map((key) => `<button type="button" class="${activeMissionCategory === key ? 'active' : ''}" data-mission-category="${key}">${categoryLabels[key]}</button>`).join('')}`;
+    const preschool = isToddlerUser(); const assisted = isAssistedUser(); const displayName = currentUser.label;
+    const tabs = document.getElementById('missionProfiles'); tabs.innerHTML = '';
+    const categoryLabels = preschool ? {all:'すべて',common:'どこでも',day1:'いちにちめ',day2:'ふつかめ',family:'かぞく',creator:'おたのしみ'} : {all:'すべて',...missionCategories};
+    if (day1Complete && activeMissionCategory === 'day1') activeMissionCategory = 'all';
+    const categoryKeys = Object.keys(missionCategories).filter((key) => !(day1Complete && key === 'day1'));
+    const categoryTabs = document.getElementById('missionCategories'); categoryTabs.innerHTML = `<button type="button" class="${activeMissionCategory === 'all' ? 'active' : ''}" data-mission-category="all">${categoryLabels.all}</button>${categoryKeys.map((key) => `<button type="button" class="${activeMissionCategory === key ? 'active' : ''}" data-mission-category="${key}">${categoryLabels[key]}</button>`).join('')}`;
     categoryTabs.querySelectorAll('[data-mission-category]').forEach((button) => button.addEventListener('click', () => { activeMissionCategory = button.dataset.missionCategory; renderMissions(); }));
-    const state = profileState(activeProfile); const visibleItems = missionItems.filter((item) => activeMissionCategory === 'all' || item.category === activeMissionCategory).map(missionForProfile);
+    const pastMissionIds = new Set(['opening-shot','sunset-movie','ride-movie','night-wide']);
+    const state = profileState(activeProfile); const availableItems = missionItems.filter((item) => !(day1Complete && (item.category === 'day1' || pastMissionIds.has(item.id)))); const visibleItems = availableItems.filter((item) => activeMissionCategory === 'all' || item.category === activeMissionCategory).map(missionForProfile);
     document.getElementById('mission').classList.toggle('toddler-mode', preschool);
     document.getElementById('missionKicker').textContent = preschool ? 'こども みっしょん' : 'KIDS QUEST';
     document.getElementById('missionHeroTitle').innerHTML = preschool ? 'たびを あそびに<br>かえよう。' : '旅を遊びに<br>変えよう。';
-    document.getElementById('missionHeroDescription').textContent = assisted ? 'みつけたら おとなに おしえてね。ぜんぶで75こ。' : preschool ? 'みつける、てつだう、たのしむ。ぜんぶで75こ。' : '見つける、手伝う、笑わせる。全75ミッション。';
+    document.getElementById('missionHeroDescription').textContent = assisted ? 'みつけたら おとなに おしえてね。' : preschool ? 'できそうなものを えらんでね。' : `今からできる${availableItems.length}ミッション。`;
     document.getElementById('missionRankKicker').textContent = preschool ? 'いまの らんく' : 'YOUR RANK'; document.getElementById('kidsXpLabel').textContent = preschool ? 'ぽいんと' : 'XP';
     document.getElementById('missionModeBadge').textContent = assisted ? 'おとなと いっしょ' : preschool ? 'じぶんの きろく' : '記録中';
     document.getElementById('missionResultKicker').textContent = preschool ? 'けっか' : 'RESULT';
     document.getElementById('missionList').innerHTML = visibleItems.map((item) => `<label class="mission-card ${state[item.id] ? 'completed' : ''}"><input type="checkbox" data-mission-id="${item.id}" ${state[item.id] ? 'checked' : ''}><span class="mission-emoji">${item.emoji}</span><b>${escapeHTML(item.title)}</b><small>${assisted ? 'おとなと いっしょ' : `+${missionXp(item)} ${preschool ? 'ぽいんと' : 'XP'}`}</small></label>`).join('');
-    document.querySelectorAll('[data-mission-id]').forEach((input) => input.addEventListener('change', () => { const before = missionItems.filter((item) => state[item.id]).length; state[input.dataset.missionId] = input.checked; storage.set('missions', missionDone); renderMissions(); if (input.checked) toast(Math.floor((before + 1) / 5) > Math.floor(before / 5) ? (preschool ? 'らんくあっぷ！' : 'ランクアップ！') : (preschool ? `${activeProfile} できた！` : 'ミッションクリア！')); }));
-    const cleared = missionItems.filter((item) => state[item.id]).length; const rankIndex = Math.min(Math.floor(cleared / 5), missionRanks.length - 1); const nextAt = Math.min(75, (rankIndex + 1) * 5);
-    const completedItems = missionItems.filter((item) => state[item.id]); const xp = completedItems.reduce((sum,item) => sum + missionXp(item), 0);
+    document.querySelectorAll('[data-mission-id]').forEach((input) => input.addEventListener('change', () => { const before = availableItems.filter((item) => state[item.id]).length; state[input.dataset.missionId] = input.checked; storage.set('missions', missionDone); renderMissions(); if (input.checked) toast(Math.floor((before + 1) / 5) > Math.floor(before / 5) ? (preschool ? 'らんくあっぷ！' : 'ランクアップ！') : (preschool ? `${displayName} できた！` : 'ミッションクリア！')); }));
+    const cleared = availableItems.filter((item) => state[item.id]).length; const totalMissions = availableItems.length; const rankIndex = Math.min(Math.floor(cleared / 5), missionRanks.length - 1); const nextAt = Math.min(totalMissions, (rankIndex + 1) * 5);
+    const completedItems = availableItems.filter((item) => state[item.id]); const xp = completedItems.reduce((sum,item) => sum + missionXp(item), 0);
     const rankName = (preschool ? preschoolMissionRanks : missionRanks)[rankIndex];
-    document.getElementById('kidsXp').textContent = xp; document.getElementById('missionPlayerName').textContent = activeProfile;
-    document.getElementById('missionRank').textContent = rankName; document.getElementById('missionProgressText').textContent = preschool ? `${cleared} / ${missionItems.length} できた` : `${cleared} / ${missionItems.length} ミッション`;
-    document.getElementById('missionNextRank').textContent = cleared === missionItems.length ? (preschool ? 'ぜんぶ できた！' : '全ミッションクリア！') : preschool ? `あと${nextAt - cleared}こで らんくあっぷ` : `あと${nextAt - cleared}個でランクアップ`;
+    document.getElementById('kidsXp').textContent = xp; document.getElementById('missionPlayerName').textContent = displayName;
+    document.getElementById('missionRank').textContent = rankName; document.getElementById('missionProgressText').textContent = preschool ? `${cleared} / ${totalMissions} できた` : `${cleared} / ${totalMissions} ミッション`;
+    document.getElementById('missionNextRank').textContent = cleared === totalMissions ? (preschool ? 'ぜんぶ できた！' : '全ミッションクリア！') : preschool ? `あと${nextAt - cleared}こで らんくあっぷ` : `あと${nextAt - cleared}個でランクアップ`;
     document.getElementById('missionRing').style.setProperty('--mission-progress', `${(cleared % 5) / 5 * 360}deg`);
-    document.getElementById('missionResultTitle').textContent = preschool ? `${activeProfile}の きろく` : `${activeProfile}の記録`; document.getElementById('missionResultScore').textContent = preschool ? `${cleared} できた` : `${cleared} CLEAR`; document.getElementById('missionResultSummary').textContent = preschool ? `${rankName} · ${xp} ぽいんと` : `${rankName} · ${xp} XP`;
+    document.getElementById('missionResultTitle').textContent = preschool ? `${displayName}の きろく` : `${displayName}の記録`; document.getElementById('missionResultScore').textContent = preschool ? `${cleared} できた` : `${cleared} CLEAR`; document.getElementById('missionResultSummary').textContent = preschool ? `${rankName} · ${xp} ぽいんと` : `${rankName} · ${xp} XP`;
     document.getElementById('missionResultList').innerHTML = completedItems.length ? completedItems.map((item) => `<span>${item.emoji} ${escapeHTML(missionForProfile(item).title)}</span>`).join('') : `<p>${preschool ? 'まだ できたものは ないよ。' : 'まだ達成したミッションはありません。'}</p>`;
     document.getElementById('missionResultNote').textContent = assisted ? 'できたら おとなと いっしょに ちぇっくしよう。' : preschool ? 'この がめんを おうちのひとに みせよう。' : 'この端末内に保存された記録です。';
     document.getElementById('toggleMissionResult').querySelector('span').textContent = missionResult.hidden ? (preschool ? 'できたものを みる' : '達成状況を確認') : (preschool ? 'できたものを とじる' : '達成状況を閉じる');
-    document.getElementById('resetMissions').textContent = preschool ? `${activeProfile}の みっしょんを やりなおす` : 'このメンバーのミッションをリセット';
+    document.getElementById('resetMissions').textContent = preschool ? `${displayName}の みっしょんを やりなおす` : '自分のミッションをリセット';
     document.getElementById('missionStorageNote').textContent = preschool ? 'きろくは この すまほの なかに のこるよ。ほかの すまほとは つながらないよ。' : '記録はこの端末内だけに保存されます。今回は短期イベントのため端末間同期は実装していません。';
   }
   const missionResult = document.getElementById('missionResult');
-  document.getElementById('toggleMissionResult').addEventListener('click', (event) => { missionResult.hidden = !missionResult.hidden; event.currentTarget.setAttribute('aria-expanded', String(!missionResult.hidden)); const preschool = Boolean(missionProfiles[activeProfile]?.young); event.currentTarget.querySelector('span').textContent = missionResult.hidden ? (preschool ? 'できたものを みる' : '達成状況を確認') : (preschool ? 'できたものを とじる' : '達成状況を閉じる'); });
-  document.getElementById('resetMissions').addEventListener('click', () => { const preschool = Boolean(missionProfiles[activeProfile]?.young); if (!window.confirm(preschool ? `${activeProfile}の みっしょんを ぜんぶ やりなおす？` : `${activeProfile}のミッションをすべてリセットしますか？`)) return; missionDone[activeProfile] = {}; storage.set('missions', missionDone); renderMissions(); toast(preschool ? 'みっしょんを やりなおしたよ' : 'ミッションをリセットしました'); });
+  document.getElementById('toggleMissionResult').addEventListener('click', (event) => { missionResult.hidden = !missionResult.hidden; event.currentTarget.setAttribute('aria-expanded', String(!missionResult.hidden)); const preschool = isToddlerUser(); event.currentTarget.querySelector('span').textContent = missionResult.hidden ? (preschool ? 'できたものを みる' : '達成状況を確認') : (preschool ? 'できたものを とじる' : '達成状況を閉じる'); });
+  document.getElementById('resetMissions').addEventListener('click', () => { const preschool = isToddlerUser(); if (!window.confirm(preschool ? `${currentUser.label}の みっしょんを ぜんぶ やりなおす？` : `${currentUser.label}のミッションをすべてリセットしますか？`)) return; missionDone[activeProfile] = {}; storage.set('missions', missionDone); renderMissions(); toast(preschool ? 'みっしょんを やりなおしたよ' : 'ミッションをリセットしました'); });
 
   // Packing checklist
   const packingItems = {
     day1:['スマホ・モバイルバッテリー','飲み物','汗拭きタオル','虫よけ','薄手の羽織り・山上の冷え対策','墓参りに必要なもの'],
     day2:['水着','着替え','タオル','浮き輪','空気入れ','ライフジャケット','マリンシューズ','テント・日除け','レジャーシート','クーラーボックス','弁当','飲み物','氷・保冷剤','日焼け止め','帽子','ゴミ袋','濡れ物用袋','救急セット','スマホ防水ケース','現金・駐車料金用小銭']
   };
-  let packingDay = 'day1'; let packingDone = storage.get('packing', {});
+  const toddlerPackingItems = ['みずぎ','きがえ','たおる','うきわ','くうきを いれるもの','らいふじゃけっと','うみの くつ','ひよけ','しーと','つめたい はこ','おべんとう','のみもの','こおり','ひやけどめ','ぼうし','ごみぶくろ','ぬれたものの ふくろ','けがの くすり','すまほの ふくろ','おかね'];
+  let packingDay = day1Complete ? 'day2' : 'day1'; let packingDone = storage.get('packing', {});
   function packingId(day, index) { return `${day}-${index}`; }
   function renderPacking() {
-    const items = packingItems[packingDay]; document.getElementById('packingList').innerHTML = `<p class="packing-note">${packingDay === 'day2' ? '海グッズは購入済み。ここでは「持っているか」ではなく「車に積んだか」を確認。' : '山上は日没後に涼しくなる可能性あり。水分と羽織りを忘れずに。'}</p><section class="simple-check-group"><div class="simple-check-list">${items.map((name,index) => `<label class="simple-check-row ${packingDone[packingId(packingDay,index)] ? 'done' : ''}"><input type="checkbox" data-packing-id="${packingId(packingDay,index)}" ${packingDone[packingId(packingDay,index)] ? 'checked' : ''}><div><b>${escapeHTML(name)}</b></div><span class="row-badge">${packingDay.toUpperCase()}</span></label>`).join('')}</div></section>`;
+    const originalItems = packingItems[packingDay]; const items = isToddlerUser() && packingDay === 'day2' ? toddlerPackingItems : originalItems; document.getElementById('packingList').innerHTML = `<p class="packing-note">${isToddlerUser() ? 'くるまに のせたら ちぇっくしよう。' : packingDay === 'day2' ? '海グッズは購入済み。ここでは「持っているか」ではなく「車に積んだか」を確認。' : '山上は日没後に涼しくなる可能性あり。水分と羽織りを忘れずに。'}</p><section class="simple-check-group"><div class="simple-check-list">${items.map((name,index) => `<label class="simple-check-row ${packingDone[packingId(packingDay,index)] ? 'done' : ''}"><input type="checkbox" data-packing-id="${packingId(packingDay,index)}" ${packingDone[packingId(packingDay,index)] ? 'checked' : ''}><div><b>${escapeHTML(name)}</b></div><span class="row-badge">${isToddlerUser() ? 'あした' : packingDay.toUpperCase()}</span></label>`).join('')}</div></section>`;
     document.querySelectorAll('[data-packing-id]').forEach((input) => input.addEventListener('change', () => { packingDone[input.dataset.packingId] = input.checked; storage.set('packing', packingDone); renderPacking(); }));
-    const total = Object.values(packingItems).flat().length; const completed = Object.keys(packingDone).filter((key) => packingDone[key]).length; const dayComplete = items.filter((_,index) => packingDone[packingId(packingDay,index)]).length;
+    const activeDays = day1Complete ? ['day2'] : ['day1','day2']; const total = activeDays.flatMap((day) => packingItems[day]).length; const completed = activeDays.reduce((sum,day) => sum + packingItems[day].filter((_,index) => packingDone[packingId(day,index)]).length, 0); const dayComplete = items.filter((_,index) => packingDone[packingId(packingDay,index)]).length;
     document.getElementById('packingProgress').textContent = `${dayComplete} / ${items.length}`; document.getElementById('packingProgressBar').style.width = `${dayComplete / items.length * 100}%`;
-    document.getElementById('morePackingProgress').textContent = `${completed} / ${total} 完了`;
+    document.getElementById('morePackingProgress').textContent = isToddlerUser() ? `${completed} / ${total} できた` : `${completed} / ${total} 完了`;
   }
   document.querySelectorAll('[data-packing-day]').forEach((button) => button.addEventListener('click', () => { packingDay = button.dataset.packingDay; document.querySelectorAll('[data-packing-day]').forEach((item) => item.classList.toggle('active', item === button)); renderPacking(); }));
+  if (day1Complete) { document.querySelector('[data-packing-day="day1"]')?.setAttribute('hidden', ''); const day2Button = document.querySelector('[data-packing-day="day2"]'); day2Button?.classList.add('active'); }
 
   // Budget and editable actual expenses
   const plannedBudget = [['アトラクション','4,000円'],['DAY1 食費・飲み物','2,000円'],['DAY2 弁当・飲み物・氷','3,000円'],['燃料','6,000円'],['高速・有料道路','6,000円'],['駐車・海水浴場設備','3,000円'],['予備費','1,000円']];
@@ -354,10 +399,11 @@ document.addEventListener('DOMContentLoaded', () => {
   let expenses = storage.get('expenses', []);
   function updateChallenge(total) {
     const remaining = BUDGET - total; const percentage = Math.min(100, total / BUDGET * 100); const over = total > BUDGET;
-    document.getElementById('actualTotal').textContent = yen(total); document.getElementById('budgetRemaining').textContent = `${over ? '−' : ''}${yen(Math.abs(remaining))}`;
-    document.getElementById('challengeRemaining').textContent = over ? `${yen(total - BUDGET)} オーバー` : `残り ${yen(remaining)}`;
+    const money = (value) => isToddlerUser() ? `${Number(value || 0).toLocaleString('ja-JP')}えん` : yen(value);
+    document.getElementById('actualTotal').textContent = money(total); document.getElementById('budgetRemaining').textContent = `${over ? '−' : ''}${money(Math.abs(remaining))}`;
+    document.getElementById('challengeRemaining').textContent = isToddlerUser() ? (over ? `${money(total - BUDGET)} おおいよ` : `のこり ${money(remaining)}`) : over ? `${yen(total - BUDGET)} オーバー` : `残り ${yen(remaining)}`;
     document.getElementById('challengePercent').textContent = `${Math.round(total / BUDGET * 100)}%`; document.getElementById('challengeRing').style.setProperty('--progress', `${percentage}%`); document.getElementById('budgetTrack').style.width = `${percentage}%`;
-    const status = over ? '基準予算を超過。内容を確認しよう。' : total >= 20000 ? 'ゴール目前。残額を意識して使おう。' : total >= 10000 ? 'いいペース。体験予算は守れている？' : 'いいスタート。体験予算を守ろう。';
+    const status = isToddlerUser() ? 'おかねは おとなと いっしょに みよう。' : over ? '基準予算を超過。内容を確認しよう。' : total >= 20000 ? 'ゴール目前。残額を意識して使おう。' : total >= 10000 ? 'いいペース。体験予算は守れている？' : 'いいスタート。体験予算を守ろう。';
     document.getElementById('budgetStatusText').textContent = status; document.getElementById('challengeMessage').textContent = status;
   }
   function resetExpenseForm() {
@@ -383,11 +429,69 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('expenseCancel').addEventListener('click', resetExpenseForm);
 
+  // Preschool-wide copy: short, hiragana-first, and focused only on the remaining day.
+  function applyToddlerStaticCopy() {
+    if (!isToddlerUser()) return;
+    const setText = (selector, value) => { const element = document.querySelector(selector); if (element) element.textContent = value; };
+    const setHTML = (selector, value) => { const element = document.querySelector(selector); if (element) element.innerHTML = value; };
+    const setTexts = (selector, values) => document.querySelectorAll(selector).forEach((element,index) => { if (values[index] !== undefined) element.textContent = values[index]; });
+
+    setText('.wordmark','せきけの なつやすみ'); setText('.trip-date','8がつ15にち・16にち');
+    setText('.hero-copy .kicker','らすと さまー'); setHTML('.hero-copy h1','なつを、<br>たのしもう。'); setHTML('.hero-lead','あしたは、<br>うみへ いこう。');
+    setText('.hero-plan span','7にんで くるま'); setText('.hero-plan strong','おうち → わかさわだの うみ');
+    setTexts('.next-action-links > *',['よていを みる →','ちず ↗']);
+    setText('.challenge-copy p','25,000えん ちゃれんじ'); setText('.challenge-card > button','おかねを みる →');
+    setText('.editorial-head .kicker','あしたの おたのしみ'); setText('.editorial-head h2','うみへ いこう。');
+    setText('[data-stage-day="day2"] .feature-index','ふつかめ'); setText('[data-stage-day="day2"] .feature-copy b','わかさわだの うみ'); setText('[data-stage-day="day2"] .feature-copy small','つかれたら やすもう。');
+    setText('.last-guide-story .kicker','いくところ'); setHTML('.last-guide-story h2','うみのことを<br>みてみよう。'); setText('.last-guide-story button','うみの しょうかい →'); setText('.home-motto','ごはんは おうちから。あそびは いっぱい。');
+    document.querySelectorAll('#home img').forEach((image) => { image.alt = 'わかさわだの うみ'; });
+
+    setText('#plan .screen-hero .kicker','あした'); setText('#plan .screen-hero h1','あしたの よてい'); setText('#plan .screen-hero p:last-child','つかれたら やすもう。');
+    const day2 = document.querySelector('[data-trip-day="2"]'); if (day2) {
+      setText('[data-trip-day="2"] .day-heading > span','ふつかめ'); setText('[data-trip-day="2"] .day-heading h2','うみで あそぼう'); setText('[data-trip-day="2"] .day-heading p','8がつ16にち');
+      const routeCopy = [
+        ['あさ','おうちを でる','おべんとうと のみものを のせよう。','🚗 くるまで 2じかんくらい'],
+        ['うみ','わかさわだの うみに つく','おとなと いっしょに じゅんびしてから あそぼう。',''],
+        ['おひる','おべんとう','かげで やすんで、おみずを のもう。',''],
+        ['あそぶ','つかれたら やすむ','3じごろまで。さむい、つかれた、と おもったら おとなに いう。','あんぜんが いちばん'],
+        ['かえる','おうちへ かえる','わすれものと ごみを みて、まっすぐ かえろう。','🚗 くるまで 2じかんくらい']
+      ];
+      day2.querySelectorAll('.route-item').forEach((item,index) => { const copy = routeCopy[index]; if (!copy) return; item.querySelector('.route-type').textContent = copy[0]; item.querySelector('h3').textContent = copy[1]; item.querySelector('h3 + p').textContent = copy[2]; const address = item.querySelector('address'); if (address) address.hidden = true; const meta = item.querySelector('.route-meta span'); if (meta && copy[3]) meta.textContent = copy[3]; });
+      const returnTime = day2.querySelector('.route-item:nth-child(5) time'); if (returnTime) returnTime.textContent = 'ひるすぎ';
+      setTexts('[data-trip-day="2"] .route-actions > *',['ちず ↗','うみの しょうかい →','もっている どうぐを つかう']);
+    }
+    setText('.safety-callout strong','つかれたら おしまい'); setText('.safety-callout p','3じまで あそばなくても だいじょうぶ。さむい、つかれた、こわい、と おもったら すぐ おとなに いおう。');
+
+    setText('#shopping .screen-hero .kicker','かいもの'); setText('#shopping .screen-hero h1','かいもの'); setText('#shopping .screen-hero p:last-child','あした もっていくもの。'); setText('#shopping .progress-panel .kicker','できた かず');
+    setText('#shoot .screen-hero .kicker','おてつだい'); setHTML('#shoot .screen-hero h1','うみで<br>やってみよう。'); setText('#shoot .screen-hero p:last-child','しゃしんは おとなに おまかせ。'); setText('#shoot .progress-panel .kicker','できた かず'); setTexts('.shoot-filter-bar button',['すべて','やってみよう','まだ']); document.querySelector('.shoot-filter-bar')?.setAttribute('aria-label','えらぶ');
+
+    setText('#guide .screen-hero .kicker','いくところ'); setText('#guide .screen-hero h1','うみの しょうかい'); setText('#guide .screen-hero p:last-child','あした いく うみだよ。'); setText('#guideBack','← おうちへ');
+    const guideFilter = document.querySelector('.guide-filter'); if (guideFilter) guideFilter.hidden = true;
+    const wada = document.getElementById('destination-wada'); if (wada) { wada.querySelector('img').alt = 'わかさわだの うみ'; wada.querySelector('small').textContent = 'あしたの うみ'; wada.querySelector('h2').textContent = 'わかさわだの うみ'; wada.querySelector('.destination-copy > p').textContent = 'すなが しろくて、あさい うみだよ。おとなの そばで あそぼう。つかれたら すぐ やすもう。'; setTexts('#destination-wada .destination-facts span',['おとなの そば','おみずを のむ','つかれたら やすむ']); setTexts('#destination-wada .destination-actions a',['くわしく みる ↗','ちず ↗']); }
+    setText('#guide .source-note','うみの ようすは、おとなに みてもらおう。');
+
+    setText('#more .screen-hero .kicker','どうぐ'); setText('#more .screen-hero h1','どうぐ'); setText('#more .screen-hero p:last-child','かいもの、おかね、もちもの。');
+    setTexts('#moreTop .more-menu button > span',['👤','🛒','💰','✓']); setTexts('#moreTop .more-menu b',['つかう ひと','かいもの','おかね','もちもの']); setText('#moreTop [data-subview="budgetView"] small','つかった おかねを みる');
+    setText('#budgetView [data-back]','← どうぐへ'); setText('#budgetView .budget-summary .kicker','25,000えん ちゃれんじ'); setText('#budgetView .budget-total span','ぜんぶの おかね'); setText('#budgetView .budget-total strong','25,000えん'); setTexts('#budgetView .budget-actual span',['つかった おかね','のこり']);
+    setText('#packingView [data-back]','← どうぐへ'); setText('#packingView .progress-panel .kicker','できた かず'); setText('[data-packing-day="day2"]','あした');
+    ['⌂|おうち','☷|よてい','◉|おてつだい','★|あそび','•••|どうぐ'].forEach((copy,index) => { const [icon,label] = copy.split('|'); const button = document.querySelectorAll('.bottom-nav .nav-btn')[index]; if (button) button.innerHTML = `<span>${icon}</span>${label}`; }); document.querySelector('.bottom-nav')?.setAttribute('aria-label','したの ぼたん'); document.getElementById('missionCategories')?.setAttribute('aria-label','えらぶ'); setHTML('#backToTop','<span>↑</span>うえ'); document.getElementById('backToTop')?.setAttribute('aria-label','うえへ');
+    setText('#userLoginModal .kicker','つかう ひと'); setTexts('[data-login-user] b',['ゆうすけ','あやな','けいすけ','あんな','はるな']); setTexts('[data-login-user] small',['ちゅうがくせい','しょうがくせい','しょうがくせい','ようちえん','おとなと いっしょ']);
+  }
+
+  // Login-time user selection. The chosen user controls language and mission state.
+  const userLoginModal = document.getElementById('userLoginModal');
+  function openUserLogin(required = false) { userLoginModal.dataset.required = String(required); userLoginModal.classList.add('open'); userLoginModal.setAttribute('aria-hidden','false'); }
+  document.getElementById('changeUser').addEventListener('click', () => openUserLogin(false));
+  document.querySelectorAll('[data-login-user]').forEach((button) => button.addEventListener('click', () => { storage.set('current-user', button.dataset.loginUser); window.location.reload(); }));
+  document.getElementById('currentUserLabel').textContent = currentUser.label;
+  applyToddlerStaticCopy();
+
   // PWA / connectivity status
   const connectivity = document.getElementById('connectivityStatus');
-  function updateConnectivity() { const online = navigator.onLine; connectivity.classList.toggle('offline', !online); connectivity.querySelector('span').textContent = online ? 'オンライン · オフライン用データを準備済み' : 'オフライン · 保存済みデータで利用中'; }
+  function updateConnectivity() { const online = navigator.onLine; connectivity.classList.toggle('offline', !online); connectivity.querySelector('span').textContent = isToddlerUser() ? (online ? 'じゅんび できてるよ' : 'でんぱが なくても つかえるよ') : online ? 'オンライン · オフライン用データを準備済み' : 'オフライン · 保存済みデータで利用中'; }
   window.addEventListener('online', updateConnectivity); window.addEventListener('offline', updateConnectivity); updateConnectivity();
-  if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js', {scope:'./'}).then(() => connectivity.classList.add('ready')).catch(() => connectivity.querySelector('span').textContent = 'オフライン準備に失敗しました');
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js', {scope:'./'}).then(() => connectivity.classList.add('ready')).catch(() => connectivity.querySelector('span').textContent = isToddlerUser() ? 'じゅんびが できなかったよ' : 'オフライン準備に失敗しました');
 
   renderShopping(); renderShots(); renderMissions(); renderPacking(); renderExpenses();
+  if (!appUsers.some((user) => user.id === selectedUserId)) openUserLogin(true);
 });
