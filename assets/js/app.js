@@ -25,6 +25,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const isAdminUser = () => Boolean(currentUser.admin);
   const isToddlerUser = () => Boolean(currentUser.toddler);
   const isAssistedUser = () => Boolean(currentUser.assisted);
+  const canUseShooting = () => ['parent','yusuke','ayana'].includes(currentUser.id);
+  const missionProfileForUserId = (userId) => appUsers.find((user) => user.id === userId)?.mission || null;
+  const userIdForMissionProfile = (profile) => appUsers.find((user) => user.mission === profile)?.id || profile;
   const day1Complete = new Date() >= new Date('2026-08-15T21:00:00+09:00');
   document.body.classList.toggle('toddler-app', isToddlerUser());
   document.body.classList.toggle('admin-mode', isAdminUser());
@@ -51,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.scrollTo(0, 0);
   }
   function showScreen(id, subview) {
-    if (id === 'mission' && isAdminUser()) id = 'shoot';
+    if (id === 'shoot' && !canUseShooting()) id = 'mission';
     if (subview === 'budgetView' && !isAdminUser()) subview = 'moreTop';
     if (!document.getElementById(id)) return;
     const previous = activeScreen();
@@ -235,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!familySync) return;
     familySync.saveCapture({
       requestKey:key,
-      requesterProfile:request.profile,
+      requesterProfile:userIdForMissionProfile(request.profile),
       missionId:request.missionId,
       status,
       photographed,
@@ -243,16 +246,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function syncMissionProgress(profile, missionId, completed) {
+    if (!familySync) return;
+    familySync.saveMission(userIdForMissionProfile(profile), missionId, completed);
+  }
+
+  function syncShotProgress(shotId, completed) {
+    if (!familySync || !canUseShooting()) return;
+    familySync.saveShot(shotId, completed);
+  }
+
   function applyRemoteCapture(row, initial = false) {
     if (!row?.request_key || !row?.requester_profile || !row?.mission_id) return;
-    const key = row.request_key;
+    const key = row.request_key; const requesterProfile = missionProfileForUserId(row.requester_profile) || row.requester_profile;
     if (row.status === 'requested') {
-      captureRequests[key] = {profile:row.requester_profile,missionId:row.mission_id,requestedAt:Date.parse(row.requested_at) || Date.now(),cloud:true};
+      captureRequests[key] = {profile:requesterProfile,missionId:row.mission_id,requestedAt:Date.parse(row.requested_at) || Date.now(),cloud:true};
     } else {
       delete captureRequests[key];
       if (row.status === 'completed') {
-        if (!missionDone[row.requester_profile]) missionDone[row.requester_profile] = {};
-        missionDone[row.requester_profile][row.mission_id] = true;
+        if (!missionDone[requesterProfile]) missionDone[requesterProfile] = {};
+        missionDone[requesterProfile][row.mission_id] = true;
         if (row.photographed) {
           const shotId = captureMissionLinks[row.mission_id]?.shotId;
           if (shotId) shotDone[shotId] = true;
@@ -262,9 +275,25 @@ document.addEventListener('DOMContentLoaded', () => {
     storage.set('capture-requests', captureRequests); storage.set('missions', missionDone); storage.set('shots', shotDone);
     renderShots(); renderMissions();
     if (!initial && row.actor_profile !== currentUser.id) {
-      const name = profileDisplayName(row.requester_profile);
-      toast(isToddlerUser() ? (row.status === 'requested' ? `${name}から おねがいが きたよ` : `${name} できた！`) : row.status === 'requested' ? `${name}から撮影依頼が届きました` : `${name}の撮影依頼が更新されました`);
+      const name = profileDisplayName(requesterProfile);
+      if (row.status === 'requested' && isAdminUser()) toast(`${name}から撮影依頼が届きました`);
+      else if (row.status !== 'requested' && (isAdminUser() || currentUser.mission === requesterProfile)) toast(isToddlerUser() ? `${name} できた！` : `${name}の撮影依頼が更新されました`);
     }
+  }
+
+  function applyRemoteMission(row, initial = false) {
+    const profile = missionProfileForUserId(row?.profile_id); if (!profile || !row?.mission_id) return;
+    if (!missionDone[profile]) missionDone[profile] = {};
+    missionDone[profile][row.mission_id] = Boolean(row.completed);
+    storage.set('missions', missionDone); renderMissions();
+    if (!initial && isAdminUser() && row.actor_profile !== currentUser.id) toast(`${profileDisplayName(profile)}のミッション進捗を更新しました`);
+  }
+
+  function applyRemoteShot(row, initial = false) {
+    if (!row?.shot_id) return;
+    shotDone[row.shot_id] = Boolean(row.completed);
+    storage.set('shots', shotDone); renderShots();
+    if (!initial && canUseShooting() && row.actor_profile !== currentUser.id) toast('撮影リストが更新されました');
   }
 
   function setFamilySyncStatus(state) {
@@ -278,6 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderCaptureQueue() {
     const root = document.getElementById('captureRequestList');
+    if (!isAdminUser()) { root.innerHTML = ''; document.getElementById('captureQueueCount').textContent = '0件'; return; }
     const requests = Object.entries(captureRequests).filter(([,request]) => captureMissionLinks[request.missionId] && !missionDone?.[request.profile]?.[request.missionId]);
     document.getElementById('captureQueueKicker').textContent = isToddlerUser() ? 'みっしょん と しゃしん' : 'MISSION × SHOT';
     document.getElementById('captureQueueTitle').textContent = isToddlerUser() ? 'とって ほしいもの' : '撮ってほしいもの';
@@ -292,10 +322,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function completeCaptureRequest(key, photographed) {
+    if (!isAdminUser()) return;
     const request = captureRequests[key]; if (!request) return;
     if (!missionDone[request.profile]) missionDone[request.profile] = {}; missionDone[request.profile][request.missionId] = true; storage.set('missions', missionDone);
     if (photographed) { const shotId = captureMissionLinks[request.missionId]?.shotId; if (shotId) { shotDone[shotId] = true; storage.set('shots', shotDone); } }
     syncCaptureRequest(key, request, 'completed', photographed);
+    syncMissionProgress(request.profile, request.missionId, true);
+    if (photographed) { const shotId = captureMissionLinks[request.missionId]?.shotId; if (shotId) syncShotProgress(shotId, true); }
     delete captureRequests[key]; storage.set('capture-requests', captureRequests); renderShots(); renderMissions();
     toast(isToddlerUser() ? `${profileDisplayName(request.profile)} できた！` : photographed ? '撮影とミッションを完了しました' : 'ミッションを完了しました');
   }
@@ -309,7 +342,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const section = document.createElement('section'); section.className = 'shot-category';
       section.innerHTML = `<div class="shot-category-head"><div><p class="kicker dark">${isToddlerUser() ? 'あした' : day.toUpperCase()}</p><h2>${label}</h2></div><span>${items.filter((item) => shotDone[item.id]).length} / ${items.length}</span></div><div class="shot-category-body">${items.map((item) => { const copy = isToddlerUser() ? toddlerShotCopy[item.id] : null; const frame = copy?.[0] || item.frame; const name = copy?.[1] || item.name; const direction = copy?.[2] || item.composition; const format = isToddlerUser() ? 'おとなと いっしょ' : item.format; return `<article class="shot-card ${shotDone[item.id] ? 'checked' : ''}"><label class="shot-check-main"><span class="shot-frame">${frame}</span><span class="shot-copy"><span class="shot-badges"><em class="${item.must ? 'priority-must' : 'priority-bonus'}">${isToddlerUser() ? (item.must ? 'やってみよう' : 'できたら') : (item.must ? 'MUST' : 'BONUS')}</em></span><b>${escapeHTML(name)}</b><p>${escapeHTML(direction)}</p><small>${escapeHTML(format)}</small></span><input type="checkbox" data-shot-id="${item.id}" ${shotDone[item.id] ? 'checked' : ''} aria-label="${escapeHTML(name)}"></label></article>`; }).join('')}</div>`; root.appendChild(section);
     });
-    root.querySelectorAll('[data-shot-id]').forEach((input) => input.addEventListener('change', () => { shotDone[input.dataset.shotId] = input.checked; storage.set('shots', shotDone); renderShots(); }));
+    root.querySelectorAll('[data-shot-id]').forEach((input) => input.addEventListener('change', () => { shotDone[input.dataset.shotId] = input.checked; storage.set('shots', shotDone); syncShotProgress(input.dataset.shotId, input.checked); renderShots(); }));
     const activeShotItems = shotItems.filter((item) => !(day1Complete && item.day === 'day1'));
     const completed = activeShotItems.filter((item) => shotDone[item.id]).length; const total = activeShotItems.length;
     document.getElementById('shootProgress').textContent = `${completed} / ${total}`; document.getElementById('shootProgressBar').style.width = `${completed / total * 100}%`;
@@ -431,7 +464,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   const missionRanks = ['ラストサマー・ルーキー','発見ハンター','お手伝いスター','山上チャレンジャー','夜景ハンター','サマー・プレイヤー','海の探検員','波乗りチャレンジャー','砂浜クリエイター','家族のムードメーカー','撮影クルー','思いやりリーダー','夏の冒険エース','ラストサマー隊長','関家サマーマスター','完全燃焼マスター'];
   const preschoolMissionRanks = ['はじめての なつやすみ','はっけん るーきー','おてつだい すたー','やまの ちょうせんたい','よぞらの はんたー','なつの あそびにん','うみの たんけんたい','なみの ちょうせんたい','すなはま くりえいたー','かぞくの にんきもの','さつえい くるー','おもいやり りーだー','なつの ぼうけん えーす','らすとさまー たいちょう','せきけの なつめいじん','なつの だいめいじん'];
-  let activeProfile = currentUser.mission; let missionDone = storage.get('missions', {});
+  let activeProfile = currentUser.mission || '優典'; let missionDone = storage.get('missions', {});
   let activeMissionCategory = 'all';
   function profileState(name) { if (!missionDone[name]) missionDone[name] = {}; return missionDone[name]; }
   function missionForProfile(item, profile = activeProfile) {
@@ -440,11 +473,45 @@ document.addEventListener('DOMContentLoaded', () => {
     return {...item,title,note:young ? `おとなと いっしょに。${item.note}` : item.note};
   }
   function missionXp(item) { return item.category === 'common' ? 10 : item.category === 'creator' ? 15 : 20; }
+  function renderAdminMissionProgress() {
+    const profiles = appUsers.filter((user) => user.mission);
+    if (!profiles.some((user) => user.mission === activeProfile)) activeProfile = profiles[0].mission;
+    const tabs = document.getElementById('missionProfiles'); tabs.hidden = false;
+    tabs.innerHTML = profiles.map((user) => `<button type="button" class="${activeProfile === user.mission ? 'active' : ''}" data-admin-profile="${escapeHTML(user.mission)}">${escapeHTML(user.label)}</button>`).join('');
+    tabs.querySelectorAll('[data-admin-profile]').forEach((button) => button.addEventListener('click', () => { activeProfile = button.dataset.adminProfile; renderMissions(); }));
+    const categoryLabels = {all:'すべて',...missionCategories};
+    if (day1Complete && activeMissionCategory === 'day1') activeMissionCategory = 'all';
+    const categoryKeys = Object.keys(missionCategories).filter((key) => !(day1Complete && key === 'day1'));
+    const categoryTabs = document.getElementById('missionCategories');
+    categoryTabs.innerHTML = `<button type="button" class="${activeMissionCategory === 'all' ? 'active' : ''}" data-mission-category="all">すべて</button>${categoryKeys.map((key) => `<button type="button" class="${activeMissionCategory === key ? 'active' : ''}" data-mission-category="${key}">${categoryLabels[key]}</button>`).join('')}`;
+    categoryTabs.querySelectorAll('[data-mission-category]').forEach((button) => button.addEventListener('click', () => { activeMissionCategory = button.dataset.missionCategory; renderMissions(); }));
+    const pastMissionIds = new Set(['opening-shot','sunset-movie','ride-movie','night-wide']);
+    const availableItems = missionItems.filter((item) => !(day1Complete && (item.category === 'day1' || pastMissionIds.has(item.id))));
+    const visibleItems = availableItems.filter((item) => activeMissionCategory === 'all' || item.category === activeMissionCategory).map((item) => missionForProfile(item,activeProfile));
+    const state = profileState(activeProfile); const cleared = availableItems.filter((item) => state[item.id]).length;
+    const xp = availableItems.filter((item) => state[item.id]).reduce((sum,item) => sum + missionXp(item), 0);
+    document.getElementById('mission').classList.remove('toddler-mode');
+    document.getElementById('missionKicker').textContent = 'FAMILY PROGRESS';
+    document.getElementById('missionHeroTitle').innerHTML = 'みんなの進捗を<br>見守る。';
+    document.getElementById('missionHeroDescription').textContent = '家族全員の達成状況と撮影待ちを確認できます。';
+    document.getElementById('missionRankKicker').textContent = 'MISSION STATUS'; document.getElementById('kidsXpLabel').textContent = 'XP';
+    document.getElementById('missionModeBadge').textContent = '管理者確認'; document.getElementById('missionPlayerName').textContent = profileDisplayName(activeProfile);
+    document.getElementById('missionRank').textContent = `${cleared}個達成`;
+    document.getElementById('missionProgressText').textContent = `${cleared} / ${availableItems.length} ミッション`;
+    document.getElementById('missionNextRank').textContent = `未達成 ${availableItems.length - cleared}個`;
+    document.getElementById('kidsXp').textContent = xp;
+    document.getElementById('missionRing').style.setProperty('--mission-progress', `${availableItems.length ? cleared / availableItems.length * 360 : 0}deg`);
+    document.getElementById('toggleMissionResult').hidden = true; document.getElementById('missionResult').hidden = true; document.getElementById('resetMissions').hidden = true;
+    document.getElementById('missionList').innerHTML = visibleItems.map((item) => {
+      const requestKey = captureRequestKey(activeProfile,item.id); const requested = Boolean(captureRequests[requestKey]); const completed = Boolean(state[item.id]);
+      const status = completed ? '✓ 達成' : requested ? '📷 撮影依頼中' : '未達成';
+      return `<article class="mission-card admin-progress-card ${completed ? 'completed' : ''} ${requested ? 'requested' : ''}"><span class="mission-emoji">${item.emoji}</span><b>${escapeHTML(item.title)}</b><small>${status} · +${missionXp(item)} XP</small></article>`;
+    }).join('');
+    document.getElementById('missionStorageNote').textContent = familySync?.joined ? '家族の端末から届いた進捗をリアルタイムで表示しています。' : '家族同期へ接続すると全員の進捗を確認できます。';
+  }
   function renderMissions() {
-    if (isAdminUser()) {
-      document.getElementById('missionList').innerHTML = '';
-      return;
-    }
+    if (isAdminUser()) { renderAdminMissionProgress(); return; }
+    document.getElementById('missionProfiles').hidden = true; document.getElementById('toggleMissionResult').hidden = false; document.getElementById('resetMissions').hidden = false;
     const preschool = isToddlerUser(); const assisted = isAssistedUser(); const displayName = currentUser.label;
     const tabs = document.getElementById('missionProfiles'); tabs.innerHTML = '';
     const categoryLabels = preschool ? {all:'すべて',common:'どこでも',day1:'いちにちめ',day2:'ふつかめ',family:'かぞく',creator:'おたのしみ'} : {all:'すべて',...missionCategories};
@@ -468,7 +535,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const action = state[item.id] ? '' : requested ? `<button type="button" class="mission-capture-button requested" data-capture-cancel="${escapeHTML(requestKey)}">${preschool ? 'おねがいしたよ · やめる' : '撮影待ち · 取り消す'}</button>` : `<button type="button" class="mission-capture-button" data-capture-request="${item.id}">${preschool ? 'おとなに とってもらう' : '撮影をお願い'}</button>`;
       return `<article class="mission-card capture-mission ${state[item.id] ? 'completed' : ''} ${requested ? 'requested' : ''}"><span class="mission-emoji">${item.emoji}</span><b>${escapeHTML(item.title)}</b><small>${captureStatus}</small>${action}</article>`;
     }).join('');
-    document.querySelectorAll('[data-mission-id]').forEach((input) => input.addEventListener('change', () => { const before = availableItems.filter((item) => state[item.id]).length; state[input.dataset.missionId] = input.checked; storage.set('missions', missionDone); renderMissions(); if (input.checked) toast(Math.floor((before + 1) / 5) > Math.floor(before / 5) ? (preschool ? 'らんくあっぷ！' : 'ランクアップ！') : (preschool ? `${displayName} できた！` : 'ミッションクリア！')); }));
+    document.querySelectorAll('[data-mission-id]').forEach((input) => input.addEventListener('change', () => { const before = availableItems.filter((item) => state[item.id]).length; state[input.dataset.missionId] = input.checked; storage.set('missions', missionDone); syncMissionProgress(activeProfile,input.dataset.missionId,input.checked); renderMissions(); if (input.checked) toast(Math.floor((before + 1) / 5) > Math.floor(before / 5) ? (preschool ? 'らんくあっぷ！' : 'ランクアップ！') : (preschool ? `${displayName} できた！` : 'ミッションクリア！')); }));
     document.querySelectorAll('[data-capture-request]').forEach((button) => button.addEventListener('click', () => { const missionId = button.dataset.captureRequest; const key = captureRequestKey(activeProfile, missionId); captureRequests[key] = {profile:activeProfile,missionId,requestedAt:Date.now()}; storage.set('capture-requests', captureRequests); syncCaptureRequest(key, captureRequests[key], 'requested'); renderMissions(); renderShots(); toast(preschool ? 'おとなに おねがいしたよ' : '撮影リストに追加しました'); }));
     document.querySelectorAll('[data-capture-cancel]').forEach((button) => button.addEventListener('click', () => { const key = button.dataset.captureCancel; const request = captureRequests[key]; if (request) syncCaptureRequest(key, request, 'cancelled'); delete captureRequests[key]; storage.set('capture-requests', captureRequests); renderMissions(); renderShots(); toast(preschool ? 'おねがいを やめたよ' : '撮影依頼を取り消しました'); }));
     const cleared = availableItems.filter((item) => state[item.id]).length; const totalMissions = availableItems.length; const rankIndex = Math.min(Math.floor(cleared / 5), missionRanks.length - 1); const nextAt = Math.min(totalMissions, (rankIndex + 1) * 5);
@@ -483,11 +550,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('missionResultNote').textContent = assisted ? 'できたら おとなと いっしょに ちぇっくしよう。' : preschool ? 'この がめんを おうちのひとに みせよう。' : 'この端末内に保存された記録です。';
     document.getElementById('toggleMissionResult').querySelector('span').textContent = missionResult.hidden ? (preschool ? 'できたものを みる' : '達成状況を確認') : (preschool ? 'できたものを とじる' : '達成状況を閉じる');
     document.getElementById('resetMissions').textContent = preschool ? `${displayName}の みっしょんを やりなおす` : '自分のミッションをリセット';
-    document.getElementById('missionStorageNote').textContent = familySync?.joined ? (preschool ? 'しゃしんの おねがいは、みんなの すまほに とどくよ。' : '撮影依頼と連動ミッションは家族の端末間で同期されます。') : preschool ? 'つながるまで、この すまほに のこるよ。' : '家族同期に接続するまでは、この端末内に保存されます。';
+    document.getElementById('missionStorageNote').textContent = familySync?.joined ? (preschool ? 'できたことと しゃしんの おねがいは、おうちの ひとに とどくよ。' : 'ミッション進捗は管理者と同期され、撮影依頼は管理者だけに届きます。') : preschool ? 'つながるまで、この すまほに のこるよ。' : '家族同期に接続するまでは、この端末内に保存されます。';
   }
   const missionResult = document.getElementById('missionResult');
   document.getElementById('toggleMissionResult').addEventListener('click', (event) => { missionResult.hidden = !missionResult.hidden; event.currentTarget.setAttribute('aria-expanded', String(!missionResult.hidden)); const preschool = isToddlerUser(); event.currentTarget.querySelector('span').textContent = missionResult.hidden ? (preschool ? 'できたものを みる' : '達成状況を確認') : (preschool ? 'できたものを とじる' : '達成状況を閉じる'); });
-  document.getElementById('resetMissions').addEventListener('click', () => { const preschool = isToddlerUser(); if (!window.confirm(preschool ? `${currentUser.label}の みっしょんを ぜんぶ やりなおす？` : `${currentUser.label}のミッションをすべてリセットしますか？`)) return; missionDone[activeProfile] = {}; Object.keys(captureRequests).filter((key) => captureRequests[key].profile === activeProfile).forEach((key) => { syncCaptureRequest(key, captureRequests[key], 'cancelled'); delete captureRequests[key]; }); storage.set('missions', missionDone); storage.set('capture-requests', captureRequests); renderMissions(); renderShots(); toast(preschool ? 'みっしょんを やりなおしたよ' : 'ミッションをリセットしました'); });
+  document.getElementById('resetMissions').addEventListener('click', () => { if (isAdminUser()) return; const preschool = isToddlerUser(); if (!window.confirm(preschool ? `${currentUser.label}の みっしょんを ぜんぶ やりなおす？` : `${currentUser.label}のミッションをすべてリセットしますか？`)) return; const completedIds = Object.keys(profileState(activeProfile)).filter((id) => missionDone[activeProfile][id]); completedIds.forEach((id) => syncMissionProgress(activeProfile,id,false)); missionDone[activeProfile] = {}; Object.keys(captureRequests).filter((key) => captureRequests[key].profile === activeProfile).forEach((key) => { syncCaptureRequest(key, captureRequests[key], 'cancelled'); delete captureRequests[key]; }); storage.set('missions', missionDone); storage.set('capture-requests', captureRequests); renderMissions(); renderShots(); toast(preschool ? 'みっしょんを やりなおしたよ' : 'ミッションをリセットしました'); });
 
   // Packing checklist
   const packingItems = {
@@ -590,19 +657,28 @@ document.addEventListener('DOMContentLoaded', () => {
     setText('#packingView [data-back]','← どうぐへ'); setText('#packingView .progress-panel .kicker','できた かず'); setText('[data-packing-day="day2"]','あした');
     ['⌂|おうち','☷|よてい','◉|おてつだい','★|あそび','•••|どうぐ'].forEach((copy,index) => { const [icon,label] = copy.split('|'); const button = document.querySelectorAll('.bottom-nav .nav-btn')[index]; if (button) button.innerHTML = `<span>${icon}</span>${label}`; }); document.querySelector('.bottom-nav')?.setAttribute('aria-label','したの ぼたん'); document.getElementById('missionCategories')?.setAttribute('aria-label','えらぶ'); setHTML('#backToTop','<span>↑</span>うえ'); document.getElementById('backToTop')?.setAttribute('aria-label','うえへ');
     setText('#userLoginModal .kicker','つかう ひと'); setTexts('[data-login-user] b',['おうちの ひと','ゆうすけ','あやな','けいすけ','あんな','はるな']); setTexts('[data-login-user] small',['おかねと しゃしん','ちゅうがくせい','しょうがくせい','しょうがくせい','ようちえん','おとなと いっしょ']);
-    setText('#familySyncKicker','みんなと つなぐ'); setText('#familySyncTitle','みんなの すまほと つなぐ'); setText('#familySyncDescription','おうちの ひとに、かぞくの こーどを いれてもらおう。'); setText('#familySyncCodeLabel','かぞくの こーど'); setText('#familySyncSubmit','つなぐ'); setText('#familySyncLater','あとで');
+    setText('#familySyncKicker','みんなと つなぐ'); setText('#familySyncTitle','みんなの すまほと つなぐ'); setText('#familySyncDescription','できたことは おうちの ひとへ。しゃしんの おねがいも おうちの ひとだけに とどくよ。'); setText('#familySyncCodeLabel','かぞくの こーど'); setText('#familySyncSubmit','つなぐ'); setText('#familySyncLater','あとで');
   }
 
   function applyRoleVisibility() {
-    const admin = isAdminUser();
+    const admin = isAdminUser(); const shooting = canUseShooting();
     const adminOnly = [
       document.querySelector('.challenge-card'),
       document.querySelector('#moreTop [data-subview="budgetView"]'),
       document.getElementById('budgetView')
     ];
     adminOnly.forEach((element) => { if (element) element.hidden = !admin; });
+    const shootNav = document.querySelector('.bottom-nav [data-screen="shoot"]');
     const missionNav = document.querySelector('.bottom-nav [data-screen="mission"]');
-    if (missionNav) missionNav.hidden = admin;
+    if (shootNav) { shootNav.hidden = !shooting; if (admin) shootNav.innerHTML = '<span>◉</span>撮影依頼'; }
+    if (missionNav) { missionNav.hidden = false; if (admin) missionNav.innerHTML = '<span>★</span>進捗'; }
+    document.getElementById('captureQueue').hidden = !admin;
+    ['#shoot .progress-panel','#shoot .composition-guide','#shoot .shoot-legend','#shoot .shoot-filter-bar','#shotList'].forEach((selector) => { const element = document.querySelector(selector); if (element) element.hidden = !shooting; });
+    const shootTitle = document.querySelector('#shoot .screen-hero h1'); const shootDescription = document.querySelector('#shoot .screen-hero p:last-child');
+    if (admin && shootTitle) shootTitle.innerHTML = '子どもの依頼を<br>撮り逃さない。';
+    if (admin && shootDescription) shootDescription.textContent = '撮影依頼を確認しながら、家族の撮影進捗も管理。';
+    const bottomNav = document.querySelector('.bottom-nav'); const visibleNavCount = [...document.querySelectorAll('.bottom-nav .nav-btn')].filter((button) => !button.hidden).length;
+    if (bottomNav) bottomNav.style.gridTemplateColumns = `repeat(${visibleNavCount},1fr)`;
     const moreDescription = document.querySelector('#more .screen-hero p:last-child');
     if (moreDescription) moreDescription.textContent = admin ? '買い出し、予算、実費、持ち物を一か所に。' : isToddlerUser() ? 'かいものと もちもの。' : '買い出しと持ち物を一か所に。';
   }
@@ -620,6 +696,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const familySyncModal = document.getElementById('familySyncModal');
   const familySyncForm = document.getElementById('familySyncForm');
   const familySyncError = document.getElementById('familySyncError');
+  function seedLocalProgress() {
+    if (!familySync?.joined || storage.get('progress-sync-seeded-v16', false)) return;
+    if (currentUser.mission) Object.entries(profileState(currentUser.mission)).filter(([,done]) => done).forEach(([missionId]) => syncMissionProgress(currentUser.mission,missionId,true));
+    if (canUseShooting()) Object.entries(shotDone).filter(([,done]) => done).forEach(([shotId]) => syncShotProgress(shotId,true));
+    storage.set('progress-sync-seeded-v16', true);
+  }
   function openFamilySync() { familySyncModal.classList.add('open'); familySyncModal.setAttribute('aria-hidden','false'); setTimeout(() => document.getElementById('familySyncCode').focus(), 50); }
   function closeFamilySync() { familySyncModal.classList.remove('open'); familySyncModal.setAttribute('aria-hidden','true'); }
   document.getElementById('familySyncState')?.addEventListener('click', async () => {
@@ -635,6 +717,7 @@ document.addEventListener('DOMContentLoaded', () => {
       await familySync.join(document.getElementById('familySyncCode').value);
       closeFamilySync(); setFamilySyncStatus('online'); renderMissions();
       for (const [key,request] of Object.entries(captureRequests)) syncCaptureRequest(key,request,'requested');
+      seedLocalProgress();
       toast(isToddlerUser() ? 'みんなと つながったよ！' : '家族の端末と同期しました');
     } catch (error) {
       familySyncError.textContent = isToddlerUser() ? 'こーどが ちがうみたい。おうちの ひとに きいてね。' : '家族コードを確認してください。'; familySyncError.hidden = false;
@@ -645,11 +728,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function setupFamilySync() {
     if (!window.LastSummerSync?.configured || !appUsers.some((user) => user.id === selectedUserId)) { setFamilySyncStatus('local'); return; }
-    familySync = window.LastSummerSync.create({profileId:currentUser.id,onRow:applyRemoteCapture,onStatus:setFamilySyncStatus});
+    familySync = window.LastSummerSync.create({profileId:currentUser.id,onCaptureRow:applyRemoteCapture,onMissionRow:applyRemoteMission,onShotRow:applyRemoteShot,onStatus:setFamilySyncStatus});
     const result = await familySync.init();
     if (result.joined) {
       setFamilySyncStatus('online'); renderMissions();
       for (const [key,request] of Object.entries(captureRequests)) if (!request.cloud) syncCaptureRequest(key,request,'requested');
+      seedLocalProgress();
     } else if (!result.error) openFamilySync();
   }
 
