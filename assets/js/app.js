@@ -28,7 +28,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const canUseShooting = () => ['parent','yusuke','ayana'].includes(currentUser.id);
   const missionProfileForUserId = (userId) => appUsers.find((user) => user.id === userId)?.mission || null;
   const userIdForMissionProfile = (profile) => appUsers.find((user) => user.mission === profile)?.id || profile;
-  const day1Complete = new Date() >= new Date('2026-08-15T21:00:00+09:00');
+  let tripRuntime = storage.get('trip-runtime', null);
+  let day1Complete = tripRuntime ? tripRuntime.currentStepIndex >= 4 : new Date() >= new Date('2026-08-15T21:00:00+09:00');
   document.body.classList.toggle('toddler-app', isToddlerUser());
   document.body.classList.toggle('admin-mode', isAdminUser());
   document.body.classList.toggle('non-admin-mode', !isAdminUser());
@@ -128,20 +129,44 @@ document.addEventListener('DOMContentLoaded', () => {
     ['2026-08-16T15:00:00+09:00','8/16 15:00ごろ','うみを おわる','つかれたら はやめに おわろう。','天下茶屋'],
     ['2026-08-16T18:30:00+09:00','8/16 ゆうがた','おうちに つく','たのしかったことを はなそう。','天下茶屋']
   ];
+  if (!tripRuntime) { const inferred=schedule.findIndex((item)=>new Date(item[0])>new Date()); tripRuntime={currentStepIndex:inferred<0?schedule.length-1:inferred,delayMinutes:0}; }
   function updateNextAction() {
-    const now = new Date(); const activeSchedule = isToddlerUser() ? toddlerSchedule : schedule; let next = activeSchedule.find((item) => new Date(item[0]) > now);
+    const now = new Date(); const activeSchedule = isToddlerUser() ? toddlerSchedule : schedule;
+    const runtimeIndex = tripRuntime ? Math.max(0,Math.min(activeSchedule.length - 1,Number(tripRuntime.currentStepIndex || 0))) : -1;
+    let next = runtimeIndex >= 0 ? activeSchedule[runtimeIndex] : activeSchedule.find((item) => new Date(item[0]) > now);
     if (!next) {
       document.getElementById('nextStatus').textContent = isToddlerUser() ? 'おしまい' : 'COMPLETE'; document.getElementById('nextCountdown').textContent = isToddlerUser() ? 'できた！' : '完走';
       document.getElementById('nextTime').textContent = '8/15—16'; document.getElementById('nextTitle').textContent = isToddlerUser() ? 'なつを たのしんだよ。' : 'ラストサマー、完走。';
       document.getElementById('nextDescription').textContent = isToddlerUser() ? 'たのしかったことを みんなで はなそう。' : '家族7人の夏の記録をゆっくり振り返ろう。'; document.getElementById('nextMap').hidden = true; return;
     }
-    const diff = new Date(next[0]) - now; const hours = Math.floor(diff / 3600000); const mins = Math.max(0, Math.floor((diff % 3600000) / 60000));
+    const adjustedTime = new Date(new Date(next[0]).getTime() + Number(tripRuntime?.delayMinutes || 0) * 60000);
+    const diff = adjustedTime - now; const hours = Math.max(0,Math.floor(diff / 3600000)); const mins = Math.max(0, Math.floor((Math.max(0,diff) % 3600000) / 60000));
     document.getElementById('nextStatus').textContent = isToddlerUser() ? 'つぎ' : 'NEXT ACTION';
-    document.getElementById('nextCountdown').textContent = isToddlerUser() ? (diff < 86400000 ? (hours ? `あと${hours}じかん${mins}ふん` : `あと${mins}ふん`) : `あと${Math.ceil(diff / 86400000)}にち`) : (diff < 86400000 ? (hours ? `あと${hours}時間${mins}分` : `あと${mins}分`) : `${Math.ceil(diff / 86400000)}日後`);
+    document.getElementById('nextCountdown').textContent = diff <= 0 ? (isToddlerUser() ? 'いま やること' : '進行中') : isToddlerUser() ? (diff < 86400000 ? (hours ? `あと${hours}じかん${mins}ふん` : `あと${mins}ふん`) : `あと${Math.ceil(diff / 86400000)}にち`) : (diff < 86400000 ? (hours ? `あと${hours}時間${mins}分` : `あと${mins}分`) : `${Math.ceil(diff / 86400000)}日後`);
     document.getElementById('nextTime').textContent = next[1]; document.getElementById('nextTitle').textContent = next[2]; document.getElementById('nextDescription').textContent = next[3];
     const map = document.getElementById('nextMap'); map.hidden = false; map.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(next[4])}`;
   }
   updateNextAction(); setInterval(updateNextAction, 60000);
+
+  function saveTripRuntime(nextRuntime) {
+    const previousDay1Complete = day1Complete;
+    tripRuntime = {currentStepIndex:Math.max(0,Math.min(schedule.length - 1,Number(nextRuntime.currentStepIndex || 0))),delayMinutes:Math.max(-180,Math.min(720,Number(nextRuntime.delayMinutes || 0)))};
+    storage.set('trip-runtime',tripRuntime); day1Complete = tripRuntime.currentStepIndex >= 4;
+    familySync?.saveRuntime(tripRuntime.currentStepIndex,tripRuntime.delayMinutes);
+    updateNextAction(); renderRuntimeControls();
+    if (previousDay1Complete !== day1Complete) window.location.reload();
+  }
+  function renderRuntimeControls() {
+    const controls=document.getElementById('runtimeControls'); if (!controls) return; controls.hidden=!isAdminUser();
+    const runtime=tripRuntime || {currentStepIndex:Math.max(0,schedule.findIndex((item)=>new Date(item[0])>new Date())),delayMinutes:0};
+    document.getElementById('runtimePrevious').disabled=runtime.currentStepIndex<=0; document.getElementById('runtimeNext').disabled=runtime.currentStepIndex>=schedule.length-1;
+    document.getElementById('runtimeDelay').textContent=runtime.delayMinutes ? `${runtime.delayMinutes>0?'+':''}${runtime.delayMinutes}分` : '予定どおり';
+  }
+  document.getElementById('runtimePrevious')?.addEventListener('click',()=>saveTripRuntime({...tripRuntime,currentStepIndex:Number(tripRuntime?.currentStepIndex || 0)-1}));
+  document.getElementById('runtimeNext')?.addEventListener('click',()=>saveTripRuntime({...tripRuntime,currentStepIndex:Number(tripRuntime?.currentStepIndex || 0)+1}));
+  document.querySelectorAll('[data-delay-change]').forEach((button)=>button.addEventListener('click',()=>saveTripRuntime({...tripRuntime,currentStepIndex:Number(tripRuntime?.currentStepIndex || 0),delayMinutes:Number(tripRuntime?.delayMinutes || 0)+Number(button.dataset.delayChange)})));
+  document.getElementById('runtimeDelayReset')?.addEventListener('click',()=>saveTripRuntime({...tripRuntime,currentStepIndex:Number(tripRuntime?.currentStepIndex || 0),delayMinutes:0}));
+  renderRuntimeControls();
 
   // Shopping checklist
   const shoppingDefaults = [
@@ -164,18 +189,19 @@ document.addEventListener('DOMContentLoaded', () => {
       if (day1Complete && key === 'day1') return;
       const items = shoppingItems.filter((item) => item.category === key); if (!items.length) return;
       const section = document.createElement('section'); section.className = 'simple-check-group';
-      section.innerHTML = `<h2>${escapeHTML(label)}</h2><div class="simple-check-list">${items.map((item) => { const copy = isToddlerUser() && toddlerShoppingCopy[item.id]; const name = copy?.[0] || item.name; const qty = copy?.[1] || item.qty || (isToddlerUser() ? 'かずは まだ' : '数量未設定'); return `<div class="simple-check-row ${shoppingDone[item.id] ? 'done' : ''}"><input type="checkbox" data-shopping-check="${escapeHTML(item.id)}" ${shoppingDone[item.id] ? 'checked' : ''} aria-label="${escapeHTML(name)}"><div><b>${escapeHTML(name)}</b><small>${escapeHTML(qty)}</small></div><div class="row-actions">${item.custom ? `<button type="button" class="danger" data-shopping-delete="${escapeHTML(item.id)}">${isToddlerUser() ? 'けす' : '削除'}</button>` : ''}</div></div>`; }).join('')}</div>`;
+      section.innerHTML = `<h2>${escapeHTML(label)}</h2><div class="simple-check-list">${items.map((item) => { const copy = isToddlerUser() && toddlerShoppingCopy[item.id]; const name = copy?.[0] || item.name; const qty = copy?.[1] || item.qty || (isToddlerUser() ? 'かずは まだ' : '数量未設定'); const owner=appUsers.find((user)=>user.id===item.assignedProfile)?.label; return `<div class="simple-check-row ${shoppingDone[item.id] ? 'done' : ''}"><input type="checkbox" data-shopping-check="${escapeHTML(item.id)}" ${shoppingDone[item.id] ? 'checked' : ''} aria-label="${escapeHTML(name)}"><div><b>${escapeHTML(name)}</b><small>${escapeHTML(qty)}${owner?` · ${escapeHTML(owner)}担当`:''}</small></div><div class="row-actions">${isAdminUser()?`<select data-shopping-assignee="${escapeHTML(item.id)}"><option value="">担当なし</option>${appUsers.map((user)=>`<option value="${user.id}" ${item.assignedProfile===user.id?'selected':''}>${escapeHTML(user.label)}</option>`).join('')}</select>`:''}${item.custom ? `<button type="button" class="danger" data-shopping-delete="${escapeHTML(item.id)}">${isToddlerUser() ? 'けす' : '削除'}</button>` : ''}</div></div>`; }).join('')}</div>`;
       root.appendChild(section);
     });
-    root.querySelectorAll('[data-shopping-check]').forEach((input) => input.addEventListener('change', () => { shoppingDone[input.dataset.shoppingCheck] = input.checked; storage.set('shopping-done', shoppingDone); renderShopping(); }));
-    root.querySelectorAll('[data-shopping-delete]').forEach((button) => button.addEventListener('click', () => { shoppingItems = shoppingItems.filter((item) => item.id !== button.dataset.shoppingDelete); delete shoppingDone[button.dataset.shoppingDelete]; storage.set('shopping-items', shoppingItems); storage.set('shopping-done', shoppingDone); renderShopping(); toast('項目を削除しました'); }));
+    root.querySelectorAll('[data-shopping-check]').forEach((input) => input.addEventListener('change', () => { const item=shoppingItems.find((entry)=>entry.id===input.dataset.shoppingCheck); shoppingDone[input.dataset.shoppingCheck] = input.checked; storage.set('shopping-done', shoppingDone); if(item) familySync?.saveShopping(item,input.checked,false,item.assignedProfile); renderShopping(); }));
+    root.querySelectorAll('[data-shopping-delete]').forEach((button) => button.addEventListener('click', () => { const item=shoppingItems.find((entry)=>entry.id===button.dataset.shoppingDelete); shoppingItems = shoppingItems.filter((entry) => entry.id !== button.dataset.shoppingDelete); delete shoppingDone[button.dataset.shoppingDelete]; storage.set('shopping-items', shoppingItems); storage.set('shopping-done', shoppingDone); if(item) familySync?.saveShopping(item,false,true,item.assignedProfile); renderShopping(); toast('項目を削除しました'); }));
+    root.querySelectorAll('[data-shopping-assignee]').forEach((select)=>select.addEventListener('change',()=>{const item=shoppingItems.find((entry)=>entry.id===select.dataset.shoppingAssignee);if(!item)return;item.assignedProfile=select.value;storage.set('shopping-items',shoppingItems);familySync?.saveShopping(item,Boolean(shoppingDone[item.id]),false,item.assignedProfile);renderShopping();}));
     const activeShoppingItems = shoppingItems.filter((item) => !(day1Complete && item.category === 'day1')); const completed = activeShoppingItems.filter((item) => shoppingDone[item.id]).length; const total = activeShoppingItems.length; const percentage = total ? completed / total * 100 : 0;
     document.getElementById('shoppingProgressLabel').textContent = `${completed} / ${total}`; document.getElementById('shoppingProgressBar').style.width = `${percentage}%`; document.getElementById('moreShoppingProgress').textContent = `${completed} / ${total}`;
   }
   document.getElementById('addShoppingForm').addEventListener('submit', (event) => {
     event.preventDefault(); const name = document.getElementById('shoppingName').value.trim(); if (!name) return;
-    shoppingItems.push({id:`custom-${Date.now()}`,category:document.getElementById('shoppingCategory').value,name,qty:document.getElementById('shoppingQty').value.trim(),custom:true});
-    storage.set('shopping-items', shoppingItems); event.target.reset(); renderShopping(); toast('買い出し項目を追加しました');
+    const item={id:crypto.randomUUID?.() || `custom-${Date.now()}`,category:document.getElementById('shoppingCategory').value,name,qty:document.getElementById('shoppingQty').value.trim(),custom:true}; shoppingItems.push(item);
+    storage.set('shopping-items', shoppingItems); familySync?.saveShopping(item,false); event.target.reset(); renderShopping(); toast('買い出し項目を追加しました');
   });
 
   // Shooting checklist
@@ -231,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const profileDisplayName = (profile) => isToddlerUser() ? (toddlerProfileNames[profile] || profile) : (appUsers.find((user) => user.mission === profile)?.label || profile);
   const captureRequestKey = (profile, missionId) => `${profile}::${missionId}`;
   let captureRequests = storage.get('capture-requests', {});
-  let shotDone = storage.get('shots', {}); let shotFilter = 'all';
+  let shotDone = storage.get('shots', {}); let shotStatus = storage.get('shot-status', {}); let shotAssignees = storage.get('shot-assignees', {}); let shotFilter = 'all';
   let familySync = null;
 
   function syncCaptureRequest(key, request, status, photographed = false) {
@@ -246,14 +272,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function syncMissionProgress(profile, missionId, completed) {
+  function syncMissionProgress(profile, missionId, status) {
     if (!familySync) return;
-    familySync.saveMission(userIdForMissionProfile(profile), missionId, completed);
+    familySync.saveMission(userIdForMissionProfile(profile), missionId, status);
   }
 
-  function syncShotProgress(shotId, completed) {
+  function syncShotProgress(shotId, status) {
     if (!familySync || !canUseShooting()) return;
-    familySync.saveShot(shotId, completed);
+    familySync.saveShot(shotId, status, shotAssignees[shotId] || null);
   }
 
   function applyRemoteCapture(row, initial = false) {
@@ -265,14 +291,14 @@ document.addEventListener('DOMContentLoaded', () => {
       delete captureRequests[key];
       if (row.status === 'completed') {
         if (!missionDone[requesterProfile]) missionDone[requesterProfile] = {};
-        missionDone[requesterProfile][row.mission_id] = true;
+        missionDone[requesterProfile][row.mission_id] = true; missionStatus[requesterProfile] ||= {}; missionStatus[requesterProfile][row.mission_id]='approved';
         if (row.photographed) {
           const shotId = captureMissionLinks[row.mission_id]?.shotId;
-          if (shotId) shotDone[shotId] = true;
+          if (shotId) {shotDone[shotId] = true;shotStatus[shotId]='done';}
         }
       }
     }
-    storage.set('capture-requests', captureRequests); storage.set('missions', missionDone); storage.set('shots', shotDone);
+    storage.set('capture-requests', captureRequests); storage.set('missions', missionDone); storage.set('mission-status',missionStatus); storage.set('shots', shotDone); storage.set('shot-status',shotStatus);
     renderShots(); renderMissions();
     if (!initial && row.actor_profile !== currentUser.id) {
       const name = profileDisplayName(requesterProfile);
@@ -284,25 +310,37 @@ document.addEventListener('DOMContentLoaded', () => {
   function applyRemoteMission(row, initial = false) {
     const profile = missionProfileForUserId(row?.profile_id); if (!profile || !row?.mission_id) return;
     if (!missionDone[profile]) missionDone[profile] = {};
-    missionDone[profile][row.mission_id] = Boolean(row.completed);
-    storage.set('missions', missionDone); renderMissions();
+    missionStatus[profile] ||= {}; missionStatus[profile][row.mission_id] = row.status || (row.completed ? 'approved' : 'rejected');
+    missionDone[profile][row.mission_id] = missionStatus[profile][row.mission_id] === 'approved';
+    storage.set('mission-status',missionStatus); storage.set('missions', missionDone); renderMissions();
     if (!initial && isAdminUser() && row.actor_profile !== currentUser.id) toast(`${profileDisplayName(profile)}のミッション進捗を更新しました`);
   }
 
   function applyRemoteShot(row, initial = false) {
     if (!row?.shot_id) return;
-    shotDone[row.shot_id] = Boolean(row.completed);
-    storage.set('shots', shotDone); renderShots();
+    shotStatus[row.shot_id] = row.status || (row.completed ? 'done' : 'open'); shotDone[row.shot_id] = shotStatus[row.shot_id] === 'done'; shotAssignees[row.shot_id] = row.assigned_profile || '';
+    storage.set('shot-status',shotStatus); storage.set('shot-assignees',shotAssignees); storage.set('shots', shotDone); renderShots();
     if (!initial && canUseShooting() && row.actor_profile !== currentUser.id) toast('撮影リストが更新されました');
   }
 
-  function setFamilySyncStatus(state) {
+  function applyRemoteExpense(row,initial=false){if(!isAdminUser()||!row?.expense_id)return;const item={id:row.expense_id,name:row.name,amount:Number(row.amount),category:row.category};expenses=expenses.filter((entry)=>entry.id!==item.id);if(!row.deleted)expenses.push(item);storage.set('expenses',expenses);renderExpenses();if(!initial&&row.actor_profile!==currentUser.id)toast('予算・実費を同期しました');}
+  function applyRemoteRuntime(row,initial=false){if(!row)return;const previous=day1Complete;tripRuntime={currentStepIndex:Number(row.current_step_index||0),delayMinutes:Number(row.delay_minutes||0)};storage.set('trip-runtime',tripRuntime);day1Complete=tripRuntime.currentStepIndex>=4;updateNextAction();renderRuntimeControls();if(!initial&&previous!==day1Complete)window.location.reload();}
+  function applyRemoteShopping(row,initial=false){if(!row?.item_id)return;shoppingItems=shoppingItems.filter((item)=>item.id!==row.item_id);if(!row.deleted)shoppingItems.push({id:row.item_id,category:row.category,name:row.name,qty:row.qty,custom:Boolean(row.custom),assignedProfile:row.assigned_profile||''});shoppingDone[row.item_id]=Boolean(row.completed);if(row.deleted)delete shoppingDone[row.item_id];storage.set('shopping-items',shoppingItems);storage.set('shopping-done',shoppingDone);renderShopping();if(!initial&&row.actor_profile!==currentUser.id)toast('買い出しを同期しました');}
+  function applyRemotePacking(row,initial=false){if(!row?.item_id)return;packingDone[row.item_id]=Boolean(row.completed);storage.set('packing',packingDone);renderPacking();if(!initial&&row.actor_profile!==currentUser.id)toast('持ち物を同期しました');}
+  function applyRemoteMeal(row,initial=false){if(!row?.item_id)return;mealDone[row.item_id]=Boolean(row.completed);storage.set('meal-progress',mealDone);renderMeal();if(!initial&&row.actor_profile!==currentUser.id)toast('弁当準備を同期しました');}
+
+  let currentSyncState='local'; let currentSyncDetail={pendingCount:0,lastSyncAt:null};
+  function setFamilySyncStatus(state,detail={}) {
+    currentSyncState=state;currentSyncDetail=detail||{};
     const element = document.getElementById('familySyncState'); if (!element) return;
     const labels = isToddlerUser()
       ? {local:'この すまほだけ',connecting:'つないでる',online:'みんなと つながった',pending:'おくるもの あり',offline:'あとで つなぐ',error:'あとで つなぐ','join-required':'こーどを いれてね'}
       : {local:'この端末だけ',connecting:'家族と接続中',online:'家族と同期中',pending:'タップして送信',offline:'圏外・送信保留',error:'同期保留','join-required':'家族コードが必要'};
     element.className = `family-sync-state ${state}`;
     element.querySelector('em').textContent = labels[state] || labels.local;
+    const label=document.getElementById('syncCenterLabel');const more=document.getElementById('moreSyncStatus');const description=document.getElementById('syncCenterDetail');
+    if(label)label.textContent=labels[state]||labels.local;if(more)more.textContent=labels[state]||labels.local;
+    if(description){const pending=Number(detail?.pendingCount||0);description.textContent=isToddlerUser()?(pending?`${pending}こ あとで おくるよ`:detail?.lastSyncAt?`${new Date(detail.lastSyncAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}に おくったよ`:state==='join-required'?'かぞくの こーどを いれてね':'ぼたんを おした ときに おくるよ'):(pending?`${pending}件を端末に保留中`:detail?.lastSyncAt?`最終同期 ${new Date(detail.lastSyncAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}`:state==='join-required'?'家族コードで接続してください':'操作した時だけ通信します');}
   }
 
   function renderCaptureQueue() {
@@ -327,8 +365,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!missionDone[request.profile]) missionDone[request.profile] = {}; missionDone[request.profile][request.missionId] = true; storage.set('missions', missionDone);
     if (photographed) { const shotId = captureMissionLinks[request.missionId]?.shotId; if (shotId) { shotDone[shotId] = true; storage.set('shots', shotDone); } }
     syncCaptureRequest(key, request, 'completed', photographed);
-    syncMissionProgress(request.profile, request.missionId, true);
-    if (photographed) { const shotId = captureMissionLinks[request.missionId]?.shotId; if (shotId) syncShotProgress(shotId, true); }
+    missionStatus[request.profile] ||= {}; missionStatus[request.profile][request.missionId]='approved'; storage.set('mission-status',missionStatus);
+    syncMissionProgress(request.profile, request.missionId, 'approved');
+    if (photographed) { const shotId = captureMissionLinks[request.missionId]?.shotId; if (shotId) syncShotProgress(shotId, 'done'); }
     delete captureRequests[key]; storage.set('capture-requests', captureRequests); renderShots(); renderMissions();
     toast(isToddlerUser() ? `${profileDisplayName(request.profile)} できた！` : photographed ? '撮影とミッションを完了しました' : 'ミッションを完了しました');
   }
@@ -338,11 +377,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const root = document.getElementById('shotList'); root.innerHTML = '';
     [['day1','DAY 1 · 墓参りとナイター'],['day2',isToddlerUser() ? 'うみで やってみよう' : 'DAY 2 · 若狭和田ビーチ']].forEach(([day,label]) => {
       if (day1Complete && day === 'day1') return;
-      const items = shotItems.filter((item) => item.day === day && (shotFilter === 'all' || (shotFilter === 'must' && item.must) || (shotFilter === 'open' && !shotDone[item.id]))); if (!items.length) return;
+      const items = shotItems.filter((item) => item.day === day && (shotFilter === 'all' || (shotFilter === 'mine' && shotAssignees[item.id] === currentUser.id) || (shotFilter === 'must' && item.must) || (shotFilter === 'open' && !shotDone[item.id]))); if (!items.length) return;
       const section = document.createElement('section'); section.className = 'shot-category';
-      section.innerHTML = `<div class="shot-category-head"><div><p class="kicker dark">${isToddlerUser() ? 'あした' : day.toUpperCase()}</p><h2>${label}</h2></div><span>${items.filter((item) => shotDone[item.id]).length} / ${items.length}</span></div><div class="shot-category-body">${items.map((item) => { const copy = isToddlerUser() ? toddlerShotCopy[item.id] : null; const frame = copy?.[0] || item.frame; const name = copy?.[1] || item.name; const direction = copy?.[2] || item.composition; const format = isToddlerUser() ? 'おとなと いっしょ' : item.format; return `<article class="shot-card ${shotDone[item.id] ? 'checked' : ''}"><label class="shot-check-main"><span class="shot-frame">${frame}</span><span class="shot-copy"><span class="shot-badges"><em class="${item.must ? 'priority-must' : 'priority-bonus'}">${isToddlerUser() ? (item.must ? 'やってみよう' : 'できたら') : (item.must ? 'MUST' : 'BONUS')}</em></span><b>${escapeHTML(name)}</b><p>${escapeHTML(direction)}</p><small>${escapeHTML(format)}</small></span><input type="checkbox" data-shot-id="${item.id}" ${shotDone[item.id] ? 'checked' : ''} aria-label="${escapeHTML(name)}"></label></article>`; }).join('')}</div>`; root.appendChild(section);
+      section.innerHTML = `<div class="shot-category-head"><div><p class="kicker dark">${isToddlerUser() ? 'あした' : day.toUpperCase()}</p><h2>${label}</h2></div><span>${items.filter((item) => shotDone[item.id]).length} / ${items.length}</span></div><div class="shot-category-body">${items.map((item) => { const copy = isToddlerUser() ? toddlerShotCopy[item.id] : null; const frame = copy?.[0] || item.frame; const name = copy?.[1] || item.name; const direction = copy?.[2] || item.composition; const format = isToddlerUser() ? 'おとなと いっしょ' : item.format; const assignee=shotAssignees[item.id] || ''; const retake=shotStatus[item.id]==='retake'; return `<article class="shot-card ${shotDone[item.id] ? 'checked' : ''} ${retake?'retake':''}"><label class="shot-check-main"><span class="shot-frame">${frame}</span><span class="shot-copy"><span class="shot-badges"><em class="${item.must ? 'priority-must' : 'priority-bonus'}">${item.must ? 'MUST' : 'BONUS'}</em>${retake?'<em class="priority-retake">撮り直し</em>':''}${assignee?`<em class="priority-owner">${escapeHTML(appUsers.find((user)=>user.id===assignee)?.label || assignee)}担当</em>`:''}</span><b>${escapeHTML(name)}</b><p>${escapeHTML(direction)}</p><small>${escapeHTML(format)}</small>${isAdminUser()?`<span class="shot-admin-tools"><select data-shot-assignee="${item.id}" aria-label="撮影担当"><option value="">担当なし</option><option value="parent" ${assignee==='parent'?'selected':''}>管理者</option><option value="yusuke" ${assignee==='yusuke'?'selected':''}>優典</option><option value="ayana" ${assignee==='ayana'?'selected':''}>綾菜</option></select><button type="button" data-shot-retake="${item.id}">撮り直し</button></span>`:''}</span><input type="checkbox" data-shot-id="${item.id}" ${shotDone[item.id] ? 'checked' : ''} aria-label="${escapeHTML(name)}"></label></article>`; }).join('')}</div>`; root.appendChild(section);
     });
-    root.querySelectorAll('[data-shot-id]').forEach((input) => input.addEventListener('change', () => { shotDone[input.dataset.shotId] = input.checked; storage.set('shots', shotDone); syncShotProgress(input.dataset.shotId, input.checked); renderShots(); }));
+    root.querySelectorAll('[data-shot-id]').forEach((input) => input.addEventListener('change', () => { shotDone[input.dataset.shotId] = input.checked; shotStatus[input.dataset.shotId]=input.checked?'done':'open'; storage.set('shots',shotDone); storage.set('shot-status',shotStatus); syncShotProgress(input.dataset.shotId,shotStatus[input.dataset.shotId]); renderShots(); }));
+    root.querySelectorAll('[data-shot-assignee]').forEach((select)=>select.addEventListener('click',(event)=>event.stopPropagation()));
+    root.querySelectorAll('[data-shot-assignee]').forEach((select)=>select.addEventListener('change',()=>{shotAssignees[select.dataset.shotAssignee]=select.value;storage.set('shot-assignees',shotAssignees);syncShotProgress(select.dataset.shotAssignee,shotStatus[select.dataset.shotAssignee] || (shotDone[select.dataset.shotAssignee]?'done':'open'));renderShots();}));
+    root.querySelectorAll('[data-shot-retake]').forEach((button)=>button.addEventListener('click',(event)=>{event.preventDefault();event.stopPropagation();shotStatus[button.dataset.shotRetake]='retake';shotDone[button.dataset.shotRetake]=false;storage.set('shot-status',shotStatus);storage.set('shots',shotDone);syncShotProgress(button.dataset.shotRetake,'retake');renderShots();}));
     const activeShotItems = shotItems.filter((item) => !(day1Complete && item.day === 'day1'));
     const completed = activeShotItems.filter((item) => shotDone[item.id]).length; const total = activeShotItems.length;
     document.getElementById('shootProgress').textContent = `${completed} / ${total}`; document.getElementById('shootProgressBar').style.width = `${completed / total * 100}%`;
@@ -464,7 +506,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   const missionRanks = ['ラストサマー・ルーキー','発見ハンター','お手伝いスター','山上チャレンジャー','夜景ハンター','サマー・プレイヤー','海の探検員','波乗りチャレンジャー','砂浜クリエイター','家族のムードメーカー','撮影クルー','思いやりリーダー','夏の冒険エース','ラストサマー隊長','関家サマーマスター','完全燃焼マスター'];
   const preschoolMissionRanks = ['はじめての なつやすみ','はっけん るーきー','おてつだい すたー','やまの ちょうせんたい','よぞらの はんたー','なつの あそびにん','うみの たんけんたい','なみの ちょうせんたい','すなはま くりえいたー','かぞくの にんきもの','さつえい くるー','おもいやり りーだー','なつの ぼうけん えーす','らすとさまー たいちょう','せきけの なつめいじん','なつの だいめいじん'];
-  let activeProfile = currentUser.mission || '優典'; let missionDone = storage.get('missions', {});
+  let activeProfile = currentUser.mission || '優典'; let missionDone = storage.get('missions', {}); let missionStatus = storage.get('mission-status', {});
   let activeMissionCategory = 'all';
   function profileState(name) { if (!missionDone[name]) missionDone[name] = {}; return missionDone[name]; }
   function missionForProfile(item, profile = activeProfile) {
@@ -502,16 +544,21 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('kidsXp').textContent = xp;
     document.getElementById('missionRing').style.setProperty('--mission-progress', `${availableItems.length ? cleared / availableItems.length * 360 : 0}deg`);
     document.getElementById('toggleMissionResult').hidden = true; document.getElementById('missionResult').hidden = true; document.getElementById('resetMissions').hidden = true;
-    document.getElementById('missionList').innerHTML = visibleItems.map((item) => {
-      const requestKey = captureRequestKey(activeProfile,item.id); const requested = Boolean(captureRequests[requestKey]); const completed = Boolean(state[item.id]);
-      const status = completed ? '✓ 達成' : requested ? '📷 撮影依頼中' : '未達成';
-      return `<article class="mission-card admin-progress-card ${completed ? 'completed' : ''} ${requested ? 'requested' : ''}"><span class="mission-emoji">${item.emoji}</span><b>${escapeHTML(item.title)}</b><small>${status} · +${missionXp(item)} XP</small></article>`;
+    const pendingCount=visibleItems.filter((item)=>missionStatus?.[activeProfile]?.[item.id]==='pending').length;
+    document.getElementById('missionList').innerHTML = `${pendingCount?`<button type="button" class="solid-button mission-approve-all" id="approveAllMissions">確認待ち${pendingCount}件をまとめて承認</button>`:''}`+visibleItems.map((item) => {
+      const requestKey = captureRequestKey(activeProfile,item.id); const requested = Boolean(captureRequests[requestKey]); const completed = Boolean(state[item.id]); const pending=missionStatus?.[activeProfile]?.[item.id]==='pending';
+      const status = completed ? '✓ 達成' : pending ? '確認待ち' : requested ? '📷 撮影依頼中' : '未達成';
+      const actions=pending?`<span class="mission-admin-actions"><button type="button" data-mission-approve="${item.id}">承認</button><button type="button" data-mission-reject="${item.id}">戻す</button></span>`:completed?`<span class="mission-admin-actions"><button type="button" data-mission-reject="${item.id}">取り消す</button></span>`:'';
+      return `<article class="mission-card admin-progress-card ${completed ? 'completed' : ''} ${requested ? 'requested' : ''} ${pending?'pending':''}"><span class="mission-emoji">${item.emoji}</span><b>${escapeHTML(item.title)}</b><small>${status} · +${missionXp(item)} XP</small>${actions}</article>`;
     }).join('');
+    document.querySelectorAll('[data-mission-approve]').forEach((button)=>button.addEventListener('click',()=>setMissionApproval(activeProfile,button.dataset.missionApprove,'approved')));
+    document.querySelectorAll('[data-mission-reject]').forEach((button)=>button.addEventListener('click',()=>setMissionApproval(activeProfile,button.dataset.missionReject,'rejected')));
+    document.getElementById('approveAllMissions')?.addEventListener('click',()=>{visibleItems.filter((item)=>missionStatus?.[activeProfile]?.[item.id]==='pending').forEach((item)=>{missionStatus[activeProfile][item.id]='approved';profileState(activeProfile)[item.id]=true;syncMissionProgress(activeProfile,item.id,'approved');});storage.set('mission-status',missionStatus);storage.set('missions',missionDone);renderMissions();toast('確認待ちをまとめて承認しました');});
     document.getElementById('missionStorageNote').textContent = familySync?.joined ? '家族の端末から届いた進捗をリアルタイムで表示しています。' : '家族同期へ接続すると全員の進捗を確認できます。';
   }
   function renderMissions() {
     if (isAdminUser()) { renderAdminMissionProgress(); return; }
-    document.getElementById('missionProfiles').hidden = true; document.getElementById('toggleMissionResult').hidden = false; document.getElementById('resetMissions').hidden = false;
+    document.getElementById('missionProfiles').hidden = true; document.getElementById('toggleMissionResult').hidden = false; document.getElementById('resetMissions').hidden = isAssistedUser();
     const preschool = isToddlerUser(); const assisted = isAssistedUser(); const displayName = currentUser.label;
     const tabs = document.getElementById('missionProfiles'); tabs.innerHTML = '';
     const categoryLabels = preschool ? {all:'すべて',common:'どこでも',day1:'いちにちめ',day2:'ふつかめ',family:'かぞく',creator:'おたのしみ'} : {all:'すべて',...missionCategories};
@@ -530,12 +577,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('missionResultKicker').textContent = preschool ? 'けっか' : 'RESULT';
     document.getElementById('missionList').innerHTML = visibleItems.map((item) => {
       const captureLink = captureMissionLinks[item.id]; const requestKey = captureRequestKey(activeProfile, item.id); const requested = Boolean(captureRequests[requestKey]);
-      if (!captureLink) return `<label class="mission-card ${state[item.id] ? 'completed' : ''}"><input type="checkbox" data-mission-id="${item.id}" ${state[item.id] ? 'checked' : ''}><span class="mission-emoji">${item.emoji}</span><b>${escapeHTML(item.title)}</b><small>${assisted ? 'おとなと いっしょ' : `+${missionXp(item)} ${preschool ? 'ぽいんと' : 'XP'}`}</small></label>`;
+      const pending=missionStatus?.[activeProfile]?.[item.id]==='pending';
+      if (!captureLink) return `<label class="mission-card ${state[item.id] ? 'completed' : ''} ${pending?'pending':''}"><input type="checkbox" data-mission-id="${item.id}" ${state[item.id] ? 'checked' : ''} ${assisted||pending?'disabled':''}><span class="mission-emoji">${item.emoji}</span><b>${escapeHTML(item.title)}</b><small>${assisted ? 'おとなに みせよう' : pending ? (preschool?'おうちの ひとが みてるよ':'管理者の確認待ち') : `+${missionXp(item)} ${preschool ? 'ぽいんと' : 'XP'}`}</small></label>`;
       const captureStatus = state[item.id] ? (preschool ? '📷 とれた！' : '📷 撮影完了') : preschool ? '📷 とって もらったら できた' : `📷 撮ってもらったらクリア · +${missionXp(item)} XP`;
-      const action = state[item.id] ? '' : requested ? `<button type="button" class="mission-capture-button requested" data-capture-cancel="${escapeHTML(requestKey)}">${preschool ? 'おねがいしたよ · やめる' : '撮影待ち · 取り消す'}</button>` : `<button type="button" class="mission-capture-button" data-capture-request="${item.id}">${preschool ? 'おとなに とってもらう' : '撮影をお願い'}</button>`;
+      const action = state[item.id] || assisted ? '' : requested ? `<button type="button" class="mission-capture-button requested" data-capture-cancel="${escapeHTML(requestKey)}">${preschool ? 'おねがいしたよ · やめる' : '撮影待ち · 取り消す'}</button>` : `<button type="button" class="mission-capture-button" data-capture-request="${item.id}">${preschool ? 'おとなに とってもらう' : '撮影をお願い'}</button>`;
       return `<article class="mission-card capture-mission ${state[item.id] ? 'completed' : ''} ${requested ? 'requested' : ''}"><span class="mission-emoji">${item.emoji}</span><b>${escapeHTML(item.title)}</b><small>${captureStatus}</small>${action}</article>`;
     }).join('');
-    document.querySelectorAll('[data-mission-id]').forEach((input) => input.addEventListener('change', () => { const before = availableItems.filter((item) => state[item.id]).length; state[input.dataset.missionId] = input.checked; storage.set('missions', missionDone); syncMissionProgress(activeProfile,input.dataset.missionId,input.checked); renderMissions(); if (input.checked) toast(Math.floor((before + 1) / 5) > Math.floor(before / 5) ? (preschool ? 'らんくあっぷ！' : 'ランクアップ！') : (preschool ? `${displayName} できた！` : 'ミッションクリア！')); }));
+    document.querySelectorAll('[data-mission-id]').forEach((input) => input.addEventListener('change', () => { if(isAssistedUser()) return; missionStatus[activeProfile] ||= {}; missionStatus[activeProfile][input.dataset.missionId]=input.checked?'pending':'rejected'; state[input.dataset.missionId]=false; storage.set('missions',missionDone);storage.set('mission-status',missionStatus);syncMissionProgress(activeProfile,input.dataset.missionId,missionStatus[activeProfile][input.dataset.missionId]);renderMissions();toast(input.checked?(preschool?'おうちの ひとに おくったよ':'管理者へ確認を送りました'):'取り消しました'); }));
     document.querySelectorAll('[data-capture-request]').forEach((button) => button.addEventListener('click', () => { const missionId = button.dataset.captureRequest; const key = captureRequestKey(activeProfile, missionId); captureRequests[key] = {profile:activeProfile,missionId,requestedAt:Date.now()}; storage.set('capture-requests', captureRequests); syncCaptureRequest(key, captureRequests[key], 'requested'); renderMissions(); renderShots(); toast(preschool ? 'おとなに おねがいしたよ' : '撮影リストに追加しました'); }));
     document.querySelectorAll('[data-capture-cancel]').forEach((button) => button.addEventListener('click', () => { const key = button.dataset.captureCancel; const request = captureRequests[key]; if (request) syncCaptureRequest(key, request, 'cancelled'); delete captureRequests[key]; storage.set('capture-requests', captureRequests); renderMissions(); renderShots(); toast(preschool ? 'おねがいを やめたよ' : '撮影依頼を取り消しました'); }));
     const cleared = availableItems.filter((item) => state[item.id]).length; const totalMissions = availableItems.length; const rankIndex = Math.min(Math.floor(cleared / 5), missionRanks.length - 1); const nextAt = Math.min(totalMissions, (rankIndex + 1) * 5);
@@ -554,7 +602,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const missionResult = document.getElementById('missionResult');
   document.getElementById('toggleMissionResult').addEventListener('click', (event) => { missionResult.hidden = !missionResult.hidden; event.currentTarget.setAttribute('aria-expanded', String(!missionResult.hidden)); const preschool = isToddlerUser(); event.currentTarget.querySelector('span').textContent = missionResult.hidden ? (preschool ? 'できたものを みる' : '達成状況を確認') : (preschool ? 'できたものを とじる' : '達成状況を閉じる'); });
-  document.getElementById('resetMissions').addEventListener('click', () => { if (isAdminUser()) return; const preschool = isToddlerUser(); if (!window.confirm(preschool ? `${currentUser.label}の みっしょんを ぜんぶ やりなおす？` : `${currentUser.label}のミッションをすべてリセットしますか？`)) return; const completedIds = Object.keys(profileState(activeProfile)).filter((id) => missionDone[activeProfile][id]); completedIds.forEach((id) => syncMissionProgress(activeProfile,id,false)); missionDone[activeProfile] = {}; Object.keys(captureRequests).filter((key) => captureRequests[key].profile === activeProfile).forEach((key) => { syncCaptureRequest(key, captureRequests[key], 'cancelled'); delete captureRequests[key]; }); storage.set('missions', missionDone); storage.set('capture-requests', captureRequests); renderMissions(); renderShots(); toast(preschool ? 'みっしょんを やりなおしたよ' : 'ミッションをリセットしました'); });
+  function setMissionApproval(profile,missionId,status){missionStatus[profile] ||= {};missionStatus[profile][missionId]=status;profileState(profile)[missionId]=status==='approved';storage.set('mission-status',missionStatus);storage.set('missions',missionDone);syncMissionProgress(profile,missionId,status);renderMissions();toast(status==='approved'?'ミッションを承認しました':'ミッションを戻しました');}
+  document.getElementById('resetMissions').addEventListener('click', () => { if (isAdminUser()) return; const preschool = isToddlerUser(); if (!window.confirm(preschool ? `${currentUser.label}の みっしょんを ぜんぶ やりなおす？` : `${currentUser.label}のミッションをすべてリセットしますか？`)) return; const ids=new Set([...Object.keys(profileState(activeProfile)),...Object.keys(missionStatus[activeProfile]||{})]); ids.forEach((id) => syncMissionProgress(activeProfile,id,'rejected')); missionDone[activeProfile] = {}; missionStatus[activeProfile]={}; Object.keys(captureRequests).filter((key) => captureRequests[key].profile === activeProfile).forEach((key) => { syncCaptureRequest(key, captureRequests[key], 'cancelled'); delete captureRequests[key]; }); storage.set('missions', missionDone); storage.set('mission-status',missionStatus); storage.set('capture-requests', captureRequests); renderMissions(); renderShots(); toast(preschool ? 'みっしょんを やりなおしたよ' : 'ミッションをリセットしました'); });
 
   // Packing checklist
   const packingItems = {
@@ -566,13 +615,18 @@ document.addEventListener('DOMContentLoaded', () => {
   function packingId(day, index) { return `${day}-${index}`; }
   function renderPacking() {
     const originalItems = packingItems[packingDay]; const items = isToddlerUser() && packingDay === 'day2' ? toddlerPackingItems : originalItems; document.getElementById('packingList').innerHTML = `<p class="packing-note">${isToddlerUser() ? 'くるまに のせたら ちぇっくしよう。' : packingDay === 'day2' ? '海グッズは購入済み。ここでは「持っているか」ではなく「車に積んだか」を確認。' : '山上は日没後に涼しくなる可能性あり。水分と羽織りを忘れずに。'}</p><section class="simple-check-group"><div class="simple-check-list">${items.map((name,index) => `<label class="simple-check-row ${packingDone[packingId(packingDay,index)] ? 'done' : ''}"><input type="checkbox" data-packing-id="${packingId(packingDay,index)}" ${packingDone[packingId(packingDay,index)] ? 'checked' : ''}><div><b>${escapeHTML(name)}</b></div><span class="row-badge">${isToddlerUser() ? 'あした' : packingDay.toUpperCase()}</span></label>`).join('')}</div></section>`;
-    document.querySelectorAll('[data-packing-id]').forEach((input) => input.addEventListener('change', () => { packingDone[input.dataset.packingId] = input.checked; storage.set('packing', packingDone); renderPacking(); }));
+    document.querySelectorAll('[data-packing-id]').forEach((input) => input.addEventListener('change', () => { packingDone[input.dataset.packingId] = input.checked; storage.set('packing', packingDone); familySync?.savePacking(input.dataset.packingId,input.checked); renderPacking(); }));
     const activeDays = day1Complete ? ['day2'] : ['day1','day2']; const total = activeDays.flatMap((day) => packingItems[day]).length; const completed = activeDays.reduce((sum,day) => sum + packingItems[day].filter((_,index) => packingDone[packingId(day,index)]).length, 0); const dayComplete = items.filter((_,index) => packingDone[packingId(packingDay,index)]).length;
     document.getElementById('packingProgress').textContent = `${dayComplete} / ${items.length}`; document.getElementById('packingProgressBar').style.width = `${dayComplete / items.length * 100}%`;
     document.getElementById('morePackingProgress').textContent = isToddlerUser() ? `${completed} / ${total} できた` : `${completed} / ${total} 完了`;
   }
   document.querySelectorAll('[data-packing-day]').forEach((button) => button.addEventListener('click', () => { packingDay = button.dataset.packingDay; document.querySelectorAll('[data-packing-day]').forEach((item) => item.classList.toggle('active', item === button)); renderPacking(); }));
   if (day1Complete) { document.querySelector('[data-packing-day="day1"]')?.setAttribute('hidden', ''); const day2Button = document.querySelector('[data-packing-day="day2"]'); day2Button?.classList.add('active'); }
+
+  // Bento preparation workflow
+  const mealItems=[['rice','ごはんを用意する'],['cook','おかずを作る'],['cool','よく冷ます'],['pack','弁当箱に詰める'],['cold','飲み物・氷・保冷剤を用意'],['load','クーラーボックスを車へ積む']];
+  let mealDone=storage.get('meal-progress',{});
+  function renderMeal(){const completed=mealItems.filter(([id])=>mealDone[id]).length;document.getElementById('mealList').innerHTML=`<section class="simple-check-group"><div class="simple-check-list">${mealItems.map(([id,name])=>`<label class="simple-check-row ${mealDone[id]?'done':''}"><input type="checkbox" data-meal-id="${id}" ${mealDone[id]?'checked':''}><div><b>${escapeHTML(isToddlerUser()?({'rice':'ごはん','cook':'おかず','cool':'さます','pack':'おべんとうばこへ','cold':'のみものと こおり','load':'くるまに のせる'}[id]):name)}</b></div></label>`).join('')}</div></section>`;document.querySelectorAll('[data-meal-id]').forEach((input)=>input.addEventListener('change',()=>{mealDone[input.dataset.mealId]=input.checked;storage.set('meal-progress',mealDone);familySync?.saveMeal(input.dataset.mealId,input.checked);renderMeal();}));document.getElementById('mealProgress').textContent=`${completed} / ${mealItems.length}`;document.getElementById('mealProgressBar').style.width=`${completed/mealItems.length*100}%`;document.getElementById('moreMealProgress').textContent=`${completed} / ${mealItems.length}`;}
 
   // Budget and editable actual expenses
   const plannedBudget = [['アトラクション','4,000円'],['DAY1 食費・飲み物','2,000円'],['DAY2 弁当・飲み物・氷','3,000円'],['燃料','6,000円'],['高速・有料道路','6,000円'],['駐車・海水浴場設備','3,000円'],['予備費','1,000円']];
@@ -599,14 +653,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const root = document.getElementById('expenseList');
     root.innerHTML = expenses.length ? expenses.map((item) => `<div class="expense-row"><div><b>${escapeHTML(item.name)}</b><small>${escapeHTML(item.category)}</small></div><strong>${yen(item.amount)}</strong><div class="row-actions"><button type="button" data-expense-edit="${item.id}">編集</button><button type="button" class="danger" data-expense-delete="${item.id}">削除</button></div></div>`).join('') : '<div class="expense-empty">まだ実費はありません。使ったらその場で追加できます。</div>';
     root.querySelectorAll('[data-expense-edit]').forEach((button) => button.addEventListener('click', () => editExpense(button.dataset.expenseEdit)));
-    root.querySelectorAll('[data-expense-delete]').forEach((button) => button.addEventListener('click', () => { expenses = expenses.filter((item) => item.id !== button.dataset.expenseDelete); storage.set('expenses', expenses); renderExpenses(); resetExpenseForm(); toast('実費を削除しました'); }));
+    root.querySelectorAll('[data-expense-delete]').forEach((button) => button.addEventListener('click', () => { const item=expenses.find((entry)=>entry.id===button.dataset.expenseDelete); expenses = expenses.filter((entry) => entry.id !== button.dataset.expenseDelete); storage.set('expenses', expenses); if(item) familySync?.saveExpense(item,true); renderExpenses(); resetExpenseForm(); toast('実費を削除しました'); }));
     updateChallenge(expenses.reduce((sum,item) => sum + Number(item.amount), 0));
   }
   document.getElementById('expenseForm').addEventListener('submit', (event) => {
-    event.preventDefault(); const id = document.getElementById('expenseId').value; const item = {id:id || `expense-${Date.now()}`,name:document.getElementById('expenseName').value.trim(),amount:Number(document.getElementById('expenseAmount').value),category:document.getElementById('expenseCategory').value};
+    event.preventDefault(); const id = document.getElementById('expenseId').value; const item = {id:id || crypto.randomUUID?.() || `expense-${Date.now()}`,name:document.getElementById('expenseName').value.trim(),amount:Number(document.getElementById('expenseAmount').value),category:document.getElementById('expenseCategory').value};
     if (!item.name || !Number.isFinite(item.amount) || item.amount < 0) return;
     if (id) expenses = expenses.map((expense) => expense.id === id ? item : expense); else expenses.push(item);
-    storage.set('expenses', expenses); renderExpenses(); resetExpenseForm(); toast(id ? '実費を更新しました' : '実費を追加しました');
+    storage.set('expenses', expenses); familySync?.saveExpense(item,false); renderExpenses(); resetExpenseForm(); toast(id ? '実費を更新しました' : '実費を追加しました');
   });
   document.getElementById('expenseCancel').addEventListener('click', resetExpenseForm);
 
@@ -644,7 +698,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setText('.safety-callout strong','つかれたら おしまい'); setText('.safety-callout p','3じまで あそばなくても だいじょうぶ。さむい、つかれた、こわい、と おもったら すぐ おとなに いおう。');
 
     setText('#shopping .screen-hero .kicker','かいもの'); setText('#shopping .screen-hero h1','かいもの'); setText('#shopping .screen-hero p:last-child','あした もっていくもの。'); setText('#shopping .progress-panel .kicker','できた かず');
-    setText('#shoot .screen-hero .kicker','おてつだい'); setHTML('#shoot .screen-hero h1','うみで<br>やってみよう。'); setText('#shoot .screen-hero p:last-child','しゃしんは おとなに おまかせ。'); setText('#shoot .progress-panel .kicker','できた かず'); setTexts('.shoot-filter-bar button',['すべて','やってみよう','まだ']); document.querySelector('.shoot-filter-bar')?.setAttribute('aria-label','えらぶ');
+    setText('#shoot .screen-hero .kicker','おてつだい'); setHTML('#shoot .screen-hero h1','うみで<br>やってみよう。'); setText('#shoot .screen-hero p:last-child','しゃしんは おとなに おまかせ。'); setText('#shoot .progress-panel .kicker','できた かず'); setTexts('.shoot-filter-bar button',['すべて','じぶん','だいじ','まだ']); document.querySelector('.shoot-filter-bar')?.setAttribute('aria-label','えらぶ');
 
     setText('#guide .screen-hero .kicker','いくところ'); setText('#guide .screen-hero h1','うみの しょうかい'); setText('#guide .screen-hero p:last-child','あした いく うみだよ。'); setText('#guideBack','← おうちへ');
     const guideFilter = document.querySelector('.guide-filter'); if (guideFilter) guideFilter.hidden = true;
@@ -652,9 +706,11 @@ document.addEventListener('DOMContentLoaded', () => {
     setText('#guide .source-note','うみの ようすは、おとなに みてもらおう。');
 
     setText('#more .screen-hero .kicker','どうぐ'); setText('#more .screen-hero h1','どうぐ'); setText('#more .screen-hero p:last-child','かいものと もちもの。');
-    setTexts('#moreTop .more-menu button > span',['👤','🛒','💰','✓']); setTexts('#moreTop .more-menu b',['つかう ひと','かいもの','おかね','もちもの']); setText('#moreTop [data-subview="budgetView"] small','つかった おかねを みる');
+    setTexts('#moreTop .more-menu button > span',['👤','🛒','💰','✓','🍱','↻']); setTexts('#moreTop .more-menu b',['つかう ひと','かいもの','おかね','もちもの','おべんとう','みんなと つなぐ']); setText('#moreTop [data-subview="budgetView"] small','つかった おかねを みる');
     setText('#budgetView [data-back]','← どうぐへ'); setText('#budgetView .budget-summary .kicker','25,000えん ちゃれんじ'); setText('#budgetView .budget-total span','ぜんぶの おかね'); setText('#budgetView .budget-total strong','25,000えん'); setTexts('#budgetView .budget-actual span',['つかった おかね','のこり']);
     setText('#packingView [data-back]','← どうぐへ'); setText('#packingView .progress-panel .kicker','できた かず'); setText('[data-packing-day="day2"]','あした');
+    setText('#mealView [data-back]','← どうぐへ');setText('#mealView .progress-panel .kicker','おべんとう');setText('#mealView .packing-note','さましてから つめよう。さいごに くるまへ。');
+    setText('#syncView [data-back]','← どうぐへ');setText('#syncView .sync-center-card .kicker','みんなと つなぐ');setText('#syncView .sync-center-card h2','みんなと つなぐ');setText('#syncNow','つなぐ・おくる');setText('#syncView .sync-center-card>p:last-child','じぶんで ぼたんを おした ときに、おくるよ。');
     ['⌂|おうち','☷|よてい','◉|おてつだい','★|あそび','•••|どうぐ'].forEach((copy,index) => { const [icon,label] = copy.split('|'); const button = document.querySelectorAll('.bottom-nav .nav-btn')[index]; if (button) button.innerHTML = `<span>${icon}</span>${label}`; }); document.querySelector('.bottom-nav')?.setAttribute('aria-label','したの ぼたん'); document.getElementById('missionCategories')?.setAttribute('aria-label','えらぶ'); setHTML('#backToTop','<span>↑</span>うえ'); document.getElementById('backToTop')?.setAttribute('aria-label','うえへ');
     setText('#userLoginModal .kicker','つかう ひと'); setTexts('[data-login-user] b',['おうちの ひと','ゆうすけ','あやな','けいすけ','あんな','はるな']); setTexts('[data-login-user] small',['おかねと しゃしん','ちゅうがくせい','しょうがくせい','しょうがくせい','ようちえん','おとなと いっしょ']);
     setText('#familySyncKicker','みんなと つなぐ'); setText('#familySyncTitle','みんなの すまほと つなぐ'); setText('#familySyncDescription','できたことは おうちの ひとへ。しゃしんの おねがいも おうちの ひとだけに とどくよ。'); setText('#familySyncCodeLabel','かぞくの こーど'); setText('#familySyncSubmit','つなぐ'); setText('#familySyncLater','あとで');
@@ -668,6 +724,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('budgetView')
     ];
     adminOnly.forEach((element) => { if (element) element.hidden = !admin; });
+    const exportCard=document.getElementById('exportCard');if(exportCard)exportCard.hidden=!admin;
     const shootNav = document.querySelector('.bottom-nav [data-screen="shoot"]');
     const missionNav = document.querySelector('.bottom-nav [data-screen="mission"]');
     if (shootNav) { shootNav.hidden = !shooting; if (admin) shootNav.innerHTML = '<span>◉</span>撮影依頼'; }
@@ -689,6 +746,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('changeUser').addEventListener('click', () => openUserLogin(false));
   document.querySelectorAll('[data-login-user]').forEach((button) => button.addEventListener('click', () => { storage.set('current-user', button.dataset.loginUser); window.location.reload(); }));
   document.getElementById('currentUserLabel').textContent = currentUser.label;
+  document.getElementById('adminPinField').hidden=!isAdminUser(); document.getElementById('familyAdminPin').required=isAdminUser();
   applyToddlerStaticCopy();
   applyRoleVisibility();
 
@@ -697,10 +755,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const familySyncForm = document.getElementById('familySyncForm');
   const familySyncError = document.getElementById('familySyncError');
   function seedLocalProgress() {
-    if (!familySync?.joined || storage.get('progress-sync-seeded-v16', false)) return;
-    if (currentUser.mission) Object.entries(profileState(currentUser.mission)).filter(([,done]) => done).forEach(([missionId]) => syncMissionProgress(currentUser.mission,missionId,true));
-    if (canUseShooting()) Object.entries(shotDone).filter(([,done]) => done).forEach(([shotId]) => syncShotProgress(shotId,true));
-    storage.set('progress-sync-seeded-v16', true);
+    const seedKey=`progress-sync-seeded-v18-${currentUser.id}`; if (!familySync?.joined || storage.get(seedKey, false)) return;
+    if(currentUser.mission)Object.entries(profileState(currentUser.mission)).filter(([,done])=>done).forEach(([missionId])=>syncMissionProgress(currentUser.mission,missionId,missionStatus?.[currentUser.mission]?.[missionId]||'pending'));
+    if(isAdminUser())Object.entries(missionDone).forEach(([profile,state])=>Object.entries(state).filter(([,done])=>done).forEach(([missionId])=>syncMissionProgress(profile,missionId,'approved')));
+    if(canUseShooting())Object.entries(shotDone).filter(([,done])=>done).forEach(([shotId])=>syncShotProgress(shotId,shotStatus[shotId]||'done'));
+    shoppingItems.forEach((item)=>familySync.saveShopping(item,Boolean(shoppingDone[item.id]),false,item.assignedProfile));Object.entries(packingDone).forEach(([id,done])=>familySync.savePacking(id,done));Object.entries(mealDone).forEach(([id,done])=>familySync.saveMeal(id,done));
+    if(isAdminUser()){expenses.forEach((item)=>familySync.saveExpense(item,false));if(tripRuntime)familySync.saveRuntime(tripRuntime.currentStepIndex,tripRuntime.delayMinutes);}
+    storage.set(seedKey, true);
   }
   function openFamilySync() { familySyncModal.classList.add('open'); familySyncModal.setAttribute('aria-hidden','false'); setTimeout(() => document.getElementById('familySyncCode').focus(), 50); }
   function closeFamilySync() { familySyncModal.classList.remove('open'); familySyncModal.setAttribute('aria-hidden','true'); }
@@ -709,18 +770,20 @@ document.addEventListener('DOMContentLoaded', () => {
     await familySync.flush();
     toast(isToddlerUser() ? 'おくったよ！' : '保留中のデータを送信しました');
   });
+  document.getElementById('syncNow')?.addEventListener('click',async()=>{if(!familySync?.joined){openFamilySync();return;}await familySync.flush();toast('保留中のデータを送信しました');});
+  document.getElementById('exportTripRecord')?.addEventListener('click',()=>{if(!isAdminUser())return;const record={exportedAt:new Date().toISOString(),trip:'関家 ラストサマー2026',runtime:tripRuntime,expenses,missions:missionDone,missionStatus,shots:{done:shotDone,status:shotStatus,assignees:shotAssignees},shopping:{items:shoppingItems,completed:shoppingDone},packing:packingDone,bento:mealDone};const blob=new Blob([JSON.stringify(record,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=`family-last-summer-2026-${new Date().toISOString().slice(0,10)}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('旅行記録を書き出しました');});
   document.getElementById('familySyncLater').addEventListener('click', closeFamilySync);
   familySyncForm.addEventListener('submit', async (event) => {
     event.preventDefault(); familySyncError.hidden = true;
     const submit = document.getElementById('familySyncSubmit'); submit.disabled = true; submit.textContent = isToddlerUser() ? 'つないでる…' : '接続中…';
     try {
-      await familySync.join(document.getElementById('familySyncCode').value);
+      await familySync.join(document.getElementById('familySyncCode').value,document.getElementById('familyAdminPin').value);
       closeFamilySync(); setFamilySyncStatus('online'); renderMissions();
       for (const [key,request] of Object.entries(captureRequests)) syncCaptureRequest(key,request,'requested');
       seedLocalProgress();
       toast(isToddlerUser() ? 'みんなと つながったよ！' : '家族の端末と同期しました');
     } catch (error) {
-      familySyncError.textContent = isToddlerUser() ? 'こーどが ちがうみたい。おうちの ひとに きいてね。' : '家族コードを確認してください。'; familySyncError.hidden = false;
+      familySyncError.textContent = isToddlerUser() ? 'こーどが ちがうみたい。おうちの ひとに きいてね。' : isAdminUser() ? '家族コードまたは管理者PINを確認してください。' : '家族コードを確認してください。'; familySyncError.hidden = false;
     } finally {
       submit.disabled = false; submit.textContent = isToddlerUser() ? 'つなぐ' : 'つなぐ';
     }
@@ -728,7 +791,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function setupFamilySync() {
     if (!window.LastSummerSync?.configured || !appUsers.some((user) => user.id === selectedUserId)) { setFamilySyncStatus('local'); return; }
-    familySync = window.LastSummerSync.create({profileId:currentUser.id,onCaptureRow:applyRemoteCapture,onMissionRow:applyRemoteMission,onShotRow:applyRemoteShot,onStatus:setFamilySyncStatus});
+    familySync = window.LastSummerSync.create({profileId:currentUser.id,onCaptureRow:applyRemoteCapture,onMissionRow:applyRemoteMission,onShotRow:applyRemoteShot,onExpenseRow:applyRemoteExpense,onRuntimeRow:applyRemoteRuntime,onShoppingRow:applyRemoteShopping,onPackingRow:applyRemotePacking,onMealRow:applyRemoteMeal,onStatus:setFamilySyncStatus});
     const result = await familySync.init();
     if (result.joined) {
       setFamilySyncStatus('online'); renderMissions();
@@ -743,7 +806,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('online', updateConnectivity); window.addEventListener('offline', updateConnectivity); updateConnectivity();
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js', {scope:'./'}).then(() => connectivity.classList.add('ready')).catch(() => connectivity.querySelector('span').textContent = isToddlerUser() ? 'じゅんびが できなかったよ' : 'オフライン準備に失敗しました');
 
-  renderShopping(); renderShots(); renderMissions(); renderPacking(); renderExpenses();
+  renderShopping(); renderShots(); renderMissions(); renderPacking(); renderMeal(); renderExpenses();
   if (!appUsers.some((user) => user.id === selectedUserId)) openUserLogin(true);
   else setupFamilySync();
 });

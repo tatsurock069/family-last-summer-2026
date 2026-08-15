@@ -10,12 +10,12 @@
   <meta name="apple-mobile-web-app-title" content="ラストサマー">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./assets/icons/icon-180.png">
-  <link rel="stylesheet" href="./assets/css/style.css?v=17">
-  <link rel="stylesheet" href="./assets/css/last-summer.css?v=17">
+  <link rel="stylesheet" href="./assets/css/style.css?v=18">
+  <link rel="stylesheet" href="./assets/css/last-summer.css?v=18">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
-  <script src="./assets/js/sync-config.js?v=17" defer></script>
-  <script src="./assets/js/sync.js?v=17" defer></script>
-  <script src="./assets/js/app.js?v=17" defer></script>
+  <script src="./assets/js/sync-config.js?v=18" defer></script>
+  <script src="./assets/js/sync.js?v=18" defer></script>
+  <script src="./assets/js/app.js?v=18" defer></script>
   <title>関家 ラストサマー2026</title>
 </head>
 <body>
@@ -42,6 +42,10 @@
         <div class="next-action-links">
           <button type="button" class="text-link" data-go="plan">旅程を確認 <span>→</span></button>
           <a id="nextMap" class="next-map-link" href="https://www.google.com/maps/search/?api=1&query=%E7%94%9F%E7%8E%89%E9%9C%8A%E5%9C%92" target="_blank" rel="noopener">地図 ↗</a>
+        </div>
+        <div class="runtime-controls" id="runtimeControls" hidden>
+          <div><button type="button" id="runtimePrevious">← 前へ</button><button type="button" id="runtimeNext">完了して次へ →</button></div>
+          <div><button type="button" data-delay-change="-15">−15分</button><strong id="runtimeDelay">予定どおり</strong><button type="button" data-delay-change="15">＋15分</button><button type="button" id="runtimeDelayReset">リセット</button></div>
         </div>
       </article>
 
@@ -125,7 +129,7 @@
         <div class="last-summer-composition"><img src="./assets/images/shot-samples/composition-last-summer.jpg" alt="遊園地・墓参り・海・夜景を題材にした4種類の撮影構図イラスト" loading="lazy"><div class="composition-key"><p><b>W｜ワイド</b><span>景色を主役に。家族は小さく下1/3へ。</span></p><p><b>C｜寄り</b><span>手元や表情へ近づき、背景を整理。</span></p><p><b>M｜動き</b><span>進む先に余白を残し、後ろから追う。</span></p><p><b>V｜縦</b><span>人物を左右1/3へ。光と奥行きを入れる。</span></p></div></div>
       </details>
       <div class="shoot-legend"><span><i>W</i>ワイド</span><span><i>C</i>寄り</span><span><i>M</i>動き</span><span><i>V</i>縦動画</span><span><i>S</i>環境音</span></div>
-      <div class="shoot-filter-bar" role="group" aria-label="撮影項目フィルター"><button type="button" class="active" data-shot-filter="all">すべて</button><button type="button" data-shot-filter="must">必須</button><button type="button" data-shot-filter="open">未撮影</button></div>
+      <div class="shoot-filter-bar" role="group" aria-label="撮影項目フィルター"><button type="button" class="active" data-shot-filter="all">すべて</button><button type="button" data-shot-filter="mine">自分の担当</button><button type="button" data-shot-filter="must">必須</button><button type="button" data-shot-filter="open">未撮影</button></div>
       <div id="shotList"></div>
     </div>
   </section>
@@ -179,6 +183,8 @@
           <button type="button" data-go="shopping"><span>買</span><div><b>買い出し</b><small id="moreShoppingProgress">0 / 0</small></div><i>→</i></button>
           <button type="button" data-subview="budgetView"><span>¥</span><div><b>予算・実費</b><small>25,000円チャレンジ</small></div><i>→</i></button>
           <button type="button" data-subview="packingView"><span>✓</span><div><b>持ち物</b><small id="morePackingProgress">0 / 0</small></div><i>→</i></button>
+          <button type="button" data-subview="mealView"><span>弁</span><div><b>弁当準備</b><small id="moreMealProgress">0 / 0</small></div><i>→</i></button>
+          <button type="button" data-subview="syncView"><span>↻</span><div><b>同期センター</b><small id="moreSyncStatus">この端末だけ</small></div><i>→</i></button>
         </div>
         <section id="connectivityStatus" class="connectivity-status"><i></i><span>オフライン準備を確認中</span></section>
       </div>
@@ -205,6 +211,24 @@
         <section class="progress-panel"><div><p class="kicker dark">PACKING PROGRESS</p><strong id="packingProgress">0 / 0</strong></div><div class="progress"><i id="packingProgressBar"></i></div></section>
         <div class="segment packing-segment"><button type="button" class="active" data-packing-day="day1">DAY 1</button><button type="button" data-packing-day="day2">DAY 2</button></div>
         <div id="packingList"></div>
+      </div>
+
+      <div id="mealView" class="subview" aria-hidden="true">
+        <button type="button" class="guide-back" data-back>← お道具箱へ</button>
+        <section class="progress-panel"><div><p class="kicker dark">BENTO WORKFLOW</p><strong id="mealProgress">0 / 6</strong></div><div class="progress"><i id="mealProgressBar"></i></div></section>
+        <p class="packing-note">冷ましてから詰め、最後にクーラーボックスへ。忘れやすい順に確認できます。</p>
+        <div id="mealList"></div>
+      </div>
+
+      <div id="syncView" class="subview" aria-hidden="true">
+        <button type="button" class="guide-back" data-back>← お道具箱へ</button>
+        <section class="sync-center-card">
+          <p class="kicker dark">FAMILY SYNC</p><h2>家族同期</h2>
+          <div class="sync-center-state"><i></i><div><b id="syncCenterLabel">この端末だけ</b><small id="syncCenterDetail">家族コードで接続できます</small></div></div>
+          <button type="button" class="solid-button" id="syncNow">接続・送信する</button>
+          <p>自動の定期通信はしません。アプリを開いた時、項目を変更した時、このボタンを押した時だけ通信します。</p>
+        </section>
+        <section class="sync-center-card" id="exportCard" hidden><p class="kicker dark">TRIP RECORD</p><h2>旅行記録</h2><p>予算、進行、ミッション、買い出し、持ち物、弁当、撮影の現在値をJSONで保存します。</p><button type="button" class="outline-button" id="exportTripRecord">記録を書き出す</button></section>
       </div>
     </div>
   </section>
@@ -240,6 +264,7 @@
     <p class="modal-description" id="familySyncDescription">ミッション進捗は管理者へ、撮影依頼は管理者だけに届きます。撮影リストは管理者・優典・綾菜で共有します。</p>
     <form id="familySyncForm">
       <label><span id="familySyncCodeLabel">家族コード</span><input id="familySyncCode" required maxlength="16" autocomplete="one-time-code" autocapitalize="characters" inputmode="text" placeholder="例：ABC123"></label>
+      <label id="adminPinField" hidden><span>管理者PIN</span><input id="familyAdminPin" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="6桁"></label>
       <p class="form-error" id="familySyncError" role="alert" hidden></p>
       <button class="solid-button" type="submit" id="familySyncSubmit">つなぐ</button>
       <button class="outline-button" type="button" id="familySyncLater">あとで</button>
