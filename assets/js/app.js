@@ -16,15 +16,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
   const appUsers = [
+    {id:'parent',label:'管理者（親）',mission:null,toddler:false,admin:true},
     {id:'yusuke',label:'優典',mission:'優典',toddler:false},{id:'ayana',label:'綾菜',mission:'綾菜',toddler:false},{id:'keisuke',label:'慶典',mission:'慶典',toddler:false},
     {id:'anna',label:'あんな',mission:'杏菜',toddler:true},{id:'haruna',label:'はるな',mission:'波瑠菜',toddler:true,assisted:true}
   ];
   let selectedUserId = storage.get('current-user', null);
-  let currentUser = appUsers.find((user) => user.id === selectedUserId) || appUsers[0];
+  let currentUser = appUsers.find((user) => user.id === selectedUserId) || appUsers.find((user) => user.id === 'yusuke');
+  const isAdminUser = () => Boolean(currentUser.admin);
   const isToddlerUser = () => Boolean(currentUser.toddler);
   const isAssistedUser = () => Boolean(currentUser.assisted);
   const day1Complete = new Date() >= new Date('2026-08-15T21:00:00+09:00');
   document.body.classList.toggle('toddler-app', isToddlerUser());
+  document.body.classList.toggle('admin-mode', isAdminUser());
+  document.body.classList.toggle('non-admin-mode', !isAdminUser());
   document.body.classList.toggle('stage-day2', day1Complete);
 
   let toastTimer;
@@ -47,6 +51,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.scrollTo(0, 0);
   }
   function showScreen(id, subview) {
+    if (id === 'mission' && isAdminUser()) id = 'shoot';
+    if (subview === 'budgetView' && !isAdminUser()) subview = 'moreTop';
     if (!document.getElementById(id)) return;
     const previous = activeScreen();
     if (previous === id && !subview) { window.scrollTo({top:0, behavior:'smooth'}); return; }
@@ -388,6 +394,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function missionXp(item) { return item.category === 'common' ? 10 : item.category === 'creator' ? 15 : 20; }
   function renderMissions() {
+    if (isAdminUser()) {
+      document.getElementById('missionList').innerHTML = '';
+      return;
+    }
     const preschool = isToddlerUser(); const assisted = isAssistedUser(); const displayName = currentUser.label;
     const tabs = document.getElementById('missionProfiles'); tabs.innerHTML = '';
     const categoryLabels = preschool ? {all:'すべて',common:'どこでも',day1:'いちにちめ',day2:'ふつかめ',family:'かぞく',creator:'おたのしみ'} : {all:'すべて',...missionCategories};
@@ -527,12 +537,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const wada = document.getElementById('destination-wada'); if (wada) { wada.querySelector('img').alt = 'わかさわだの うみ'; wada.querySelector('small').textContent = 'あしたの うみ'; wada.querySelector('h2').textContent = 'わかさわだの うみ'; wada.querySelector('.destination-copy > p').textContent = 'すなが しろくて、あさい うみだよ。おとなの そばで あそぼう。つかれたら すぐ やすもう。'; setTexts('#destination-wada .destination-facts span',['おとなの そば','おみずを のむ','つかれたら やすむ']); setTexts('#destination-wada .destination-actions a',['くわしく みる ↗','ちず ↗']); }
     setText('#guide .source-note','うみの ようすは、おとなに みてもらおう。');
 
-    setText('#more .screen-hero .kicker','どうぐ'); setText('#more .screen-hero h1','どうぐ'); setText('#more .screen-hero p:last-child','かいもの、おかね、もちもの。');
+    setText('#more .screen-hero .kicker','どうぐ'); setText('#more .screen-hero h1','どうぐ'); setText('#more .screen-hero p:last-child','かいものと もちもの。');
     setTexts('#moreTop .more-menu button > span',['👤','🛒','💰','✓']); setTexts('#moreTop .more-menu b',['つかう ひと','かいもの','おかね','もちもの']); setText('#moreTop [data-subview="budgetView"] small','つかった おかねを みる');
     setText('#budgetView [data-back]','← どうぐへ'); setText('#budgetView .budget-summary .kicker','25,000えん ちゃれんじ'); setText('#budgetView .budget-total span','ぜんぶの おかね'); setText('#budgetView .budget-total strong','25,000えん'); setTexts('#budgetView .budget-actual span',['つかった おかね','のこり']);
     setText('#packingView [data-back]','← どうぐへ'); setText('#packingView .progress-panel .kicker','できた かず'); setText('[data-packing-day="day2"]','あした');
     ['⌂|おうち','☷|よてい','◉|おてつだい','★|あそび','•••|どうぐ'].forEach((copy,index) => { const [icon,label] = copy.split('|'); const button = document.querySelectorAll('.bottom-nav .nav-btn')[index]; if (button) button.innerHTML = `<span>${icon}</span>${label}`; }); document.querySelector('.bottom-nav')?.setAttribute('aria-label','したの ぼたん'); document.getElementById('missionCategories')?.setAttribute('aria-label','えらぶ'); setHTML('#backToTop','<span>↑</span>うえ'); document.getElementById('backToTop')?.setAttribute('aria-label','うえへ');
-    setText('#userLoginModal .kicker','つかう ひと'); setTexts('[data-login-user] b',['ゆうすけ','あやな','けいすけ','あんな','はるな']); setTexts('[data-login-user] small',['ちゅうがくせい','しょうがくせい','しょうがくせい','ようちえん','おとなと いっしょ']);
+    setText('#userLoginModal .kicker','つかう ひと'); setTexts('[data-login-user] b',['おうちの ひと','ゆうすけ','あやな','けいすけ','あんな','はるな']); setTexts('[data-login-user] small',['おかねと しゃしん','ちゅうがくせい','しょうがくせい','しょうがくせい','ようちえん','おとなと いっしょ']);
+  }
+
+  function applyRoleVisibility() {
+    const admin = isAdminUser();
+    const adminOnly = [
+      document.querySelector('.challenge-card'),
+      document.querySelector('#moreTop [data-subview="budgetView"]'),
+      document.getElementById('budgetView')
+    ];
+    adminOnly.forEach((element) => { if (element) element.hidden = !admin; });
+    const missionNav = document.querySelector('.bottom-nav [data-screen="mission"]');
+    if (missionNav) missionNav.hidden = admin;
+    const moreDescription = document.querySelector('#more .screen-hero p:last-child');
+    if (moreDescription) moreDescription.textContent = admin ? '買い出し、予算、実費、持ち物を一か所に。' : isToddlerUser() ? 'かいものと もちもの。' : '買い出しと持ち物を一か所に。';
   }
 
   // Login-time user selection. The chosen user controls language and mission state.
@@ -542,6 +566,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('[data-login-user]').forEach((button) => button.addEventListener('click', () => { storage.set('current-user', button.dataset.loginUser); window.location.reload(); }));
   document.getElementById('currentUserLabel').textContent = currentUser.label;
   applyToddlerStaticCopy();
+  applyRoleVisibility();
 
   // PWA / connectivity status
   const connectivity = document.getElementById('connectivityStatus');
