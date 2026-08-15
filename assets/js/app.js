@@ -141,25 +141,126 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   document.querySelectorAll('[data-shot-filter]').forEach((button) => button.addEventListener('click', () => { shotFilter = button.dataset.shotFilter; document.querySelectorAll('[data-shot-filter]').forEach((item) => item.classList.toggle('active', item === button)); renderShots(); }));
 
-  // Child missions: six meaningful missions per child, adjusted by age
+  // Child missions: 75 missions in five categories, with age-aware wording
   const missionProfiles = {
-    '優典':[['respect','🙏','お墓で静かに手を合わせる','家族のお手本になる'],['choice','🎡','乗りたいものを自分で決める','予算も考えて選ぶ'],['support','🤝','年下を1回サポートする','声かけや荷物の手伝い'],['night','🌃','最高の夜景ポイントを見つける','家族にも教える'],['sea','🌊','海の安全係を1回する','体調や波を気にかける'],['photo','📸','家族のベスト写真を撮る','全員が入る構図にする']],
-    '綾菜':[['respect','🙏','お墓で静かに手を合わせる','気持ちを整える'],['choice','🎠','一番乗りたいものを決める','理由も家族に話す'],['sunset','🌇','夕暮れの色を3つ見つける','写真にも残す'],['laugh','😄','家族の誰かを笑わせる','自然なリアクションを狙う'],['shell','🐚','一番きれいな貝殻を見つける','持ち帰りルールは現地優先'],['photo','📸','海のベストショットを撮る','低い目線にも挑戦']],
-    '慶典':[['respect','🙏','お墓で静かに手を合わせる','最後まで落ち着いて'],['choice','🎢','乗りたいものを自分で決める','一つを本気で選ぶ'],['night','🔭','夜景で光る場所を3つ見つける','家族に説明する'],['first','🌊','元気よく海へ向かう','走るのは安全な場所だけ'],['art','🏖️','砂浜で作品を作る','名前もつける'],['help','🧊','片付けを1回手伝う','自分から声をかける']],
-    '杏菜':[['respect','🙏','おはかで しずかに てをあわせる','おとなといっしょに'],['choice','🎡','のりたいものを ひとつえらぶ','じぶんで きめよう'],['night','✨','きれいな ひかりを みつける','みんなに おしえる'],['sea','🌊','うみに はいるとき えがおになる','あんぜんに ゆっくり'],['shell','🐚','すきな かいがらを みつける','みせて おしえる'],['art','🏖️','すなで なにかを つくる','おとなといっしょでもOK']],
-    '波瑠菜':[['respect','🙏','おはかで てをあわせる','おとなといっしょに'],['choice','🎠','のりたいものを ゆびさす','みるだけでもOK'],['night','✨','ぴかぴかを みつける','みつけたら おしえる'],['sea','🌊','うみに こんにちはする','おとなと てをつなぐ'],['shell','🐚','すきな いろを みつける','かいがらや すなで'],['laugh','😄','だれかを にこにこにする','いっしょに わらおう']]
+    '優典':{grade:'中学2年'},'綾菜':{grade:'小学6年'},'慶典':{grade:'小学3年'},
+    '杏菜':{grade:'年長',young:true},'波瑠菜':{grade:'年少',young:true}
   };
+  const missionCategories = {
+    common:'どこでも',day1:'DAY 1',day2:'DAY 2',family:'家族',creator:'撮影'
+  };
+  const missionItems = [
+    ['seatbelt','common','✅','シートベルトを確認する','出発前に自分からチェック。'],
+    ['own-drink','common','🥤','自分の飲み物を管理する','降りるときも忘れずに。'],
+    ['own-bag','common','🎒','自分の荷物を自分で持つ','必要なものを一つ確認。'],
+    ['thank-driver','common','🚙','運転ありがとうを伝える','到着したら言葉にする。'],
+    ['car-song','common','🎵','車内でみんなと一曲歌う','眠気を吹き飛ばそう。'],
+    ['window-find','common','👀','車窓の発見を一つ話す','見つけた景色を共有。'],
+    ['rest-stretch','common','🙆','休憩で体を伸ばす','肩と足をゆっくり動かす。'],
+    ['next-plan','common','🗓️','次の予定を覚える','次に行く場所を答える。'],
+    ['keep-clean','common','🧹','車内をきれいに保つ','ゴミを一つ拾う。'],
+    ['kind-word','common','🕊️','きょうだいに優しい言葉','一度、自分から声をかける。'],
+    ['help','common','🤲','困っている人を手伝う','できることを一つ探す。'],
+    ['greeting','common','😊','自分から笑顔であいさつ','元気な声で伝える。'],
+    ['timekeeper','common','⏰','集合時刻を一度知らせる','時計を見て家族に共有。'],
+    ['weather-watch','common','☀️','空の変化を見つける','雲・風・光から一つ。'],
+    ['best-memory','common','🏆','今日の一番を発表する','帰りの車で理由も話す。'],
+
+    ['respect','day1','🙏','お墓で静かに手を合わせる','気持ちを整えて過ごす。'],
+    ['quiet-minute','day1','🤫','静かに1分過ごす','周りの人にも配慮する。'],
+    ['family-memory','day1','💭','家族の思い出を一つ聞く','分からないことを質問。'],
+    ['grave-help','day1','🧤','墓参りの手伝いをする','安全にできる役を一つ。'],
+    ['day1-departure','day1','🚗','DAY1の出発を盛り上げる','元気なひと言でスタート。'],
+    ['choice','day1','🎡','乗りたいものを自分で決める','本当に乗りたい一つを選ぶ。'],
+    ['budget-choice','day1','💴','予算を考えて選ぶ','使う金額を家族と確認。'],
+    ['ikoma-sign','day1','🎠','遊園地の看板を見つける','到着の目印を探す。'],
+    ['ride-reaction','day1','😆','最高のリアクションをする','乗る前か後に気持ちを話す。'],
+    ['sunset','day1','🌇','夕暮れの色を3つ見つける','空をよく見て言葉にする。'],
+    ['night','day1','🌃','最高の夜景ポイントを発見','家族にも場所を教える。'],
+    ['light-count','day1','✨','夜景の光を5種類探す','色や形の違いを見つける。'],
+    ['mountain-air','day1','⛰️','山上の風を感じる','暑さや涼しさを一言で。'],
+    ['family-ride','day1','🙌','誰かの挑戦を応援する','乗らなくても拍手で参加。'],
+    ['udon-help','day1','🍜','冷凍うどん作りを手伝う','配膳か片付けを一つ。'],
+
+    ['early-wake','day2','⏰','朝早く起きる','6:30出発に間に合わせる。'],
+    ['load-car','day2','📦','海の荷物を一つ運ぶ','無理のない重さを選ぶ。'],
+    ['sea-first-look','day2','🌊','海が見えたら一番に発見','見えた方向をみんなに伝える。'],
+    ['first','day2','🏃','元気よく海へ向かう','安全な場所では走らない。'],
+    ['sea','day2','🛟','海の安全ルールを守る','大人から離れすぎない。'],
+    ['sunscreen','day2','🧴','日焼け止めを塗る','塗り直しも忘れずに。'],
+    ['lifejacket','day2','🦺','安全装備を自分で確認','ひもや留め具をチェック。'],
+    ['wave-jump','day2','🌊','波を上手に一回ジャンプ','周りを見ながら挑戦。'],
+    ['shell','day2','🐚','一番きれいな貝殻を探す','色や形を家族に見せる。'],
+    ['sea-color','day2','🎨','海の色に名前をつける','自分だけの名前でOK。'],
+    ['art','day2','🏖️','砂浜で作品を作る','作品に名前もつける。'],
+    ['sand-message','day2','✍️','砂に夏の言葉を書く','写真を撮って残す。'],
+    ['bento-help','day2','🍱','弁当の準備を手伝う','配る・片付けるから一つ。'],
+    ['hydrate','day2','💧','自分から水分補給する','のどが渇く前に飲む。'],
+    ['safety-check','day2','👁️','家族の体調を気にかける','寒さや疲れを一度聞く。'],
+    ['beach-support','day2','🤝','海で誰かをサポートする','浮き輪や荷物を手伝う。'],
+    ['beach-clean','day2','🗑️','砂浜のゴミを一つ拾う','安全なゴミだけ大人と回収。'],
+    ['family-line','day2','👨‍👩‍👧‍👦','海で7人そろって並ぶ','家族写真に全員集合。'],
+    ['cold-check','day2','🥶','寒くなる前に休憩する','体の変化を大人に伝える。'],
+    ['final-look','day2','👋','海に最後のあいさつ','帰る前にもう一度振り返る。'],
+
+    ['support','family','🤝','年下を一回サポートする','声かけや荷物を手伝う。'],
+    ['laugh','family','😄','家族の誰かを笑わせる','楽しい空気を作る。'],
+    ['photo','family','📸','家族のベスト写真を撮る','全員か主役が伝わる一枚。'],
+    ['parent-photo','family','💐','親とツーショットを撮る','自然な表情で一枚。'],
+    ['sibling-photo','family','👧','きょうだいで写真に入る','声をかけたら集まる。'],
+    ['compliment','family','✨','家族の良いところを伝える','具体的に一つ話す。'],
+    ['thank-you','family','💬','家族にありがとうを言う','してもらったことを伝える。'],
+    ['high-five','family','🙌','きょうだい全員とハイタッチ','DAY2終了までに達成。'],
+    ['cheer','family','📣','誰かの挑戦を応援する','大きな拍手か声援で。'],
+    ['share-snack','family','🍪','お菓子を分け合う','自分からどうぞと言う。'],
+    ['listen','family','👂','家族の話を最後まで聞く','途中でさえぎらず聞く。'],
+    ['wait-family','family','🚶','遅れている家族を待つ','みんなで動くことを優先。'],
+    ['family-joke','family','🤣','家族だけの面白話を作る','旅のあとも思い出せる話。'],
+    ['team-name','family','🏷️','今日の家族チーム名を決める','みんなで一案を選ぶ。'],
+    ['summer-promise','family','🌻','来年の夏にしたいことを話す','一人ひとつ発表する。'],
+
+    ['opening-shot','creator','🎬','旅のオープニングを撮る','日付と行き先が伝わる一言。'],
+    ['road-audio','creator','🎙️','車内の会話を10秒残す','自然な声を横動画で。'],
+    ['arrival-talk','creator','📍','到着の第一声を撮る','背景に場所が分かるものを。'],
+    ['sunset-movie','creator','🌅','夕暮れを固定で10秒撮る','手ぶれを抑えて待つ。'],
+    ['ride-movie','creator','🎢','アトラクションの反応を撮る','安全な場所から撮影。'],
+    ['night-wide','creator','🌃','夜景を横長で撮る','最初と最後を3秒止める。'],
+    ['sea-reveal','creator','🏝️','海が見えた瞬間を撮る','景色と声を一緒に残す。'],
+    ['wave-slow','creator','💦','波打ち際を低い目線で撮る','スマホを濡らさない。'],
+    ['lunch-top','creator','🍱','弁当を真上から撮る','食べる前に一枚だけ。'],
+    ['ending-shot','creator','🏁','旅の締めコメントを撮る','一番楽しかったことを一言。']
+  ].map(([id,category,emoji,title,note]) => ({id,category,emoji,title,note}));
+  const profileTitleOverrides = {
+    '優典':{support:'年下の安全と荷物をサポートする',safetyCheck:'家族の体調を確認する'},
+    '綾菜':{photo:'海のベストショットを撮る',sunset:'夕暮れの色を写真に残す'},
+    '慶典':{night:'夜景で光る場所を3つ見つける',art:'砂浜の作品に名前をつける'},
+    '杏菜':{respect:'おはかで しずかに てをあわせる',choice:'のりたいものを ひとつえらぶ',night:'きれいな ひかりを みつける',sea:'うみでは おとなのそばにいる',shell:'すきな かいがらを みつける',art:'すなで なにかを つくる'},
+    '波瑠菜':{respect:'おはかで てをあわせる',choice:'のりたいものを ゆびさす',night:'ぴかぴかを みつける',sea:'うみに こんにちはする',shell:'すきな いろを みつける',laugh:'だれかを にこにこにする'}
+  };
+  const missionRanks = ['ラストサマー・ルーキー','発見ハンター','お手伝いスター','山上チャレンジャー','夜景ハンター','サマー・プレイヤー','海の探検員','波乗りチャレンジャー','砂浜クリエイター','家族のムードメーカー','撮影クルー','思いやりリーダー','夏の冒険エース','ラストサマー隊長','関家サマーマスター','完全燃焼マスター'];
   let activeProfile = storage.get('mission-profile', '優典'); let missionDone = storage.get('missions', {});
+  let activeMissionCategory = 'all';
   function profileState(name) { if (!missionDone[name]) missionDone[name] = {}; return missionDone[name]; }
+  function missionForProfile(item) {
+    const young = missionProfiles[activeProfile]?.young;
+    return {...item,title:profileTitleOverrides[activeProfile]?.[item.id] || item.title,note:young ? `おとなといっしょに。${item.note}` : item.note};
+  }
   function renderMissions() {
     const tabs = document.getElementById('missionProfiles'); tabs.innerHTML = Object.keys(missionProfiles).map((name) => `<button type="button" class="${name === activeProfile ? 'active' : ''}" data-profile="${name}">${name}</button>`).join('');
     tabs.querySelectorAll('[data-profile]').forEach((button) => button.addEventListener('click', () => { activeProfile = button.dataset.profile; storage.set('mission-profile', activeProfile); renderMissions(); }));
-    const state = profileState(activeProfile); const items = missionProfiles[activeProfile];
-    document.getElementById('missionList').innerHTML = items.map(([id,emoji,name,note]) => `<label class="mission-card ${state[id] ? 'done' : ''}"><span class="mission-emoji">${emoji}</span><span><b>${escapeHTML(name)}</b><small>${escapeHTML(note)}</small></span><input type="checkbox" data-mission-id="${id}" ${state[id] ? 'checked' : ''}></label>`).join('');
+    const categoryTabs = document.getElementById('missionCategories'); categoryTabs.innerHTML = `<button type="button" class="${activeMissionCategory === 'all' ? 'active' : ''}" data-mission-category="all">すべて</button>${Object.entries(missionCategories).map(([key,label]) => `<button type="button" class="${activeMissionCategory === key ? 'active' : ''}" data-mission-category="${key}">${label}</button>`).join('')}`;
+    categoryTabs.querySelectorAll('[data-mission-category]').forEach((button) => button.addEventListener('click', () => { activeMissionCategory = button.dataset.missionCategory; renderMissions(); }));
+    const state = profileState(activeProfile); const categoryKeys = activeMissionCategory === 'all' ? Object.keys(missionCategories) : [activeMissionCategory];
+    document.getElementById('missionList').innerHTML = categoryKeys.map((category) => {
+      const items = missionItems.filter((item) => item.category === category).map(missionForProfile); const done = items.filter((item) => state[item.id]).length;
+      return `<section class="mission-group"><div class="mission-group-head"><h2>${missionCategories[category]}</h2><span>${done} / ${items.length}</span></div>${items.map((item) => `<label class="mission-card ${state[item.id] ? 'done' : ''}"><span class="mission-emoji">${item.emoji}</span><span><b>${escapeHTML(item.title)}</b><small>${escapeHTML(item.note)}</small></span><input type="checkbox" data-mission-id="${item.id}" ${state[item.id] ? 'checked' : ''}></label>`).join('')}</section>`;
+    }).join('');
     document.querySelectorAll('[data-mission-id]').forEach((input) => input.addEventListener('change', () => { state[input.dataset.missionId] = input.checked; storage.set('missions', missionDone); renderMissions(); if (input.checked) toast('ミッションクリア！'); }));
-    const cleared = items.filter(([id]) => state[id]).length; document.getElementById('missionCleared').textContent = cleared; document.getElementById('missionPlayerName').textContent = activeProfile;
-    document.getElementById('missionRank').textContent = cleared === 6 ? 'ラストサマー・マスター' : cleared >= 4 ? '夏の冒険リーダー' : cleared >= 2 ? 'サマー・チャレンジャー' : 'ラストサマー・ルーキー';
-    document.querySelector('.mission-ring').style.setProperty('--progress', `${cleared / 6 * 100}%`); document.getElementById('homeMissionProgress').textContent = `${cleared} / 6 CLEAR`;
+    const cleared = missionItems.filter((item) => state[item.id]).length; const rankIndex = Math.min(Math.floor(cleared / 5), missionRanks.length - 1); const nextAt = Math.min(75, (rankIndex + 1) * 5);
+    document.getElementById('missionCleared').textContent = cleared; document.getElementById('missionPlayerName').textContent = `${activeProfile} · ${missionProfiles[activeProfile].grade}`;
+    document.getElementById('missionRank').textContent = missionRanks[rankIndex]; document.getElementById('missionProgressText').textContent = `${cleared} / ${missionItems.length}`;
+    document.getElementById('missionNextRank').textContent = cleared === missionItems.length ? '全ミッションクリア！' : `あと${nextAt - cleared}個でランクアップ`;
+    document.getElementById('missionProgressBar').style.width = `${cleared / missionItems.length * 100}%`; document.querySelector('.mission-ring').style.setProperty('--progress', `${cleared / missionItems.length * 100}%`); document.getElementById('homeMissionProgress').textContent = `${cleared} / ${missionItems.length} CLEAR`;
   }
 
   // Packing checklist
