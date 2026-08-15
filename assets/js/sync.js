@@ -25,7 +25,7 @@
       this.channel = null;
       this.pending = readPending();
       this.flushing = false;
-      this.handleOnline = () => this.flush();
+      this.handleOnline = () => this.status(this.pending.length ? 'pending' : 'connecting');
     }
 
     get configured() {
@@ -88,11 +88,12 @@
           if (payload.new) this.onRow?.(payload.new, false);
         })
         .subscribe((state) => {
-          if (state === 'SUBSCRIBED') this.status('online');
+          if (state === 'SUBSCRIBED') this.status(this.pending.length ? 'pending' : 'online');
           else if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT') this.status(navigator.onLine ? 'error' : 'offline');
         });
       window.addEventListener('online', this.handleOnline);
       window.addEventListener('offline', () => this.status('offline'), {passive:true});
+      // Opening the app or joining the family is a user action, so pending writes may be sent here.
       await this.flush();
     }
 
@@ -118,6 +119,8 @@
         this.status(this.joined ? 'offline' : 'join-required');
         return false;
       }
+      // A new capture action also acts as the explicit trigger for older queued writes.
+      await this.flush();
       const result = await this.client.from('capture_requests').upsert(this.rowFromOperation(item), {onConflict:'trip_id,request_key'});
       if (result.error) {
         this.queue(item);

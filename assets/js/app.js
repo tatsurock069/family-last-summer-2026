@@ -270,8 +270,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function setFamilySyncStatus(state) {
     const element = document.getElementById('familySyncState'); if (!element) return;
     const labels = isToddlerUser()
-      ? {local:'この すまほだけ',connecting:'つないでる',online:'みんなと つながった',offline:'あとで つなぐ',error:'あとで つなぐ','join-required':'こーどを いれてね'}
-      : {local:'この端末だけ',connecting:'家族と接続中',online:'家族と同期中',offline:'圏外・あとで同期',error:'同期保留','join-required':'家族コードが必要'};
+      ? {local:'この すまほだけ',connecting:'つないでる',online:'みんなと つながった',pending:'おくるもの あり',offline:'あとで つなぐ',error:'あとで つなぐ','join-required':'こーどを いれてね'}
+      : {local:'この端末だけ',connecting:'家族と接続中',online:'家族と同期中',pending:'タップして送信',offline:'圏外・送信保留',error:'同期保留','join-required':'家族コードが必要'};
     element.className = `family-sync-state ${state}`;
     element.querySelector('em').textContent = labels[state] || labels.local;
   }
@@ -622,8 +622,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const familySyncError = document.getElementById('familySyncError');
   function openFamilySync() { familySyncModal.classList.add('open'); familySyncModal.setAttribute('aria-hidden','false'); setTimeout(() => document.getElementById('familySyncCode').focus(), 50); }
   function closeFamilySync() { familySyncModal.classList.remove('open'); familySyncModal.setAttribute('aria-hidden','true'); }
-  document.getElementById('familySyncState')?.addEventListener('click', () => {
-    if (!familySync?.joined) openFamilySync();
+  document.getElementById('familySyncState')?.addEventListener('click', async () => {
+    if (!familySync?.joined) { openFamilySync(); return; }
+    await familySync.flush();
+    toast(isToddlerUser() ? 'おくったよ！' : '保留中のデータを送信しました');
   });
   document.getElementById('familySyncLater').addEventListener('click', closeFamilySync);
   familySyncForm.addEventListener('submit', async (event) => {
