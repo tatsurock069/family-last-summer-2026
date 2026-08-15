@@ -138,16 +138,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Shooting checklist
   const shotItems = [
-    ['car-day1','day1','墓参りへ向かう車内','横動画 · 会話を自然に',true],['memorial','day1','墓参りの前後','場所と周囲に配慮して撮影',false],['ikoma-arrival','day1','生駒山上到着','看板＋家族',true],['mountain-view','day1','山上からの景色','ゆっくり横振り',true],['sunset','day1','夕暮れの変化','同じ構図で2カット',true],['ride','day1','アトラクション','乗る前後のリアクション',true],['night-view','day1','夜景と家族','顔と光の両方を残す',true],['udon','day1','帰宅後の冷凍うどん','締めの短い1カット',false],
-    ['early-start','day2','朝の出発','時計・荷物・眠い顔',true],['sea-first-look','day2','海が見えた瞬間','車内のリアクション',true],['wada-arrival','day2','若狭和田到着','地名が分かるカット',true],['run-to-sea','day2','海へ走る子ども','後ろ姿を横動画で',true],['water','day2','水中・波打ち際','低い目線で安全に',true],['bento','day2','みんなで弁当','真上＋食べる表情',false],['sand-art','day2','砂浜の作品','作者と一緒に',false],['family-photo','day2','海で家族写真','今回のベストショット',true],['tired-car','day2','帰りの疲れた車内','起こさず静かに',false],['ending','day2','帰宅のひと言','夏の締めコメント',true]
-  ].map(([id,day,name,note,must]) => ({id,day,name,note,must}));
+    ['car-day1','day1','M','墓参りへ向かう車内','助手席側から横向き。窓の景色を1/3入れ、会話中の横顔を追う。','横動画 · 10秒 · 自然な会話',true],
+    ['memorial','day1','C','墓参りの前後','参拝そのものは控えめに。花・手元・歩き出す後ろ姿を静かに寄って撮る。','横動画 · 5秒 · 周囲最優先',false],
+    ['ikoma-arrival','day1','W','生駒山上到着','入口や看板を左1/3、家族を右1/3へ。場所と全員が一枚で分かる画角。','横写真＋横動画 · 5秒',true],
+    ['mountain-view','day1','W','山上からの景色','地平線を上1/3に置き、景色を広く。手すりや家族を手前に少し入れる。','横動画 · 固定10秒',true],
+    ['sunset','day1','W','夕暮れの変化','同じ場所・同じ画角で明るいうちと日没後を1本ずつ。カメラを振らない。','横動画 · 各10秒',true],
+    ['mountain-sound','day1','S','山上の音','遊具が見える場所でスマホを固定。風と歓声を、家族が話さず10秒録る。','横動画 · 固定10秒 · 無言',false],
+    ['ride','day1','M','アトラクション','乗る前の顔→動く遊具→降りた直後の顔。進行方向に余白を残す。','横動画 · 3カット',true],
+    ['night-view','day1','V','夜景と家族','夜景を背景に人物を左右1/3へ。顔は近くの照明で明るくし、露出を下げすぎない。','縦動画＋写真 · 5秒',true],
+    ['udon','day1','C','帰宅後の冷凍うどん','湯気・箸・最初の一口へ寄る。テーブル全景は最初に1カットだけ。','横動画 · 5秒',false],
+    ['early-start','day2','C','朝の出発','時計→積み込んだ荷物→眠い顔の順。短い寄りを3つつなぐ。','横動画 · 各3秒',true],
+    ['sea-first-look','day2','M','海が見えた瞬間','先に子どもの顔を撮り、反応のあと窓の海へゆっくり向ける。','横動画 · 10秒',true],
+    ['wada-arrival','day2','W','若狭和田到着','白い砂浜・青葉山・家族が一緒に入る広い画角。水平線はまっすぐ。','横写真＋横動画 · 5秒',true],
+    ['run-to-sea','day2','M','海へ走る子ども','後ろから低い目線で追う。走る先の海側に広く余白を残す。','横動画 · 10秒 · 60fps推奨',true],
+    ['water','day2','C','水中・波打ち際','水面ぎりぎりまで低く。足・しぶき・笑顔を別々の短いカットで。','横動画 · 各5秒 · 防水優先',true],
+    ['wave-sound','day2','S','波の音','波打ち際を斜めに入れて固定。会話を止め、波が寄せて返す音を残す。','横動画 · 固定10秒 · 無言',false],
+    ['bento','day2','C','みんなで弁当','食べる前に真上から全体、その後は箸と最初の一口へ寄る。','横写真＋横動画',false],
+    ['sand-art','day2','V','砂浜の作品','作品を手前、作者を奥に置いて縦で。最後に作者と作品を同時に撮る。','縦写真 · 低い目線',false],
+    ['family-photo','day2','W','海で家族写真','海と青葉山を背景に全員を中央より少し下へ。連写して目つぶりを防ぐ。','横写真 · 3秒タイマー＋連写',true],
+    ['tired-car','day2','C','帰りの疲れた車内','眠っている手元や足元へ静かに寄る。顔を無理に撮らず起こさない。','横動画 · 5秒 · 無言',false],
+    ['ending','day2','V','帰宅のひと言','玄関前で胸から上。目線をレンズに合わせ、一番楽しかったことを一言。','縦動画 · 10秒以内',true]
+  ].map(([id,day,frame,name,composition,format,must]) => ({id,day,frame,name,composition,format,must}));
   let shotDone = storage.get('shots', {}); let shotFilter = 'all';
   function renderShots() {
     const root = document.getElementById('shotList'); root.innerHTML = '';
     [['day1','DAY 1 · 墓参りとナイター'],['day2','DAY 2 · 若狭和田ビーチ']].forEach(([day,label]) => {
       const items = shotItems.filter((item) => item.day === day && (shotFilter === 'all' || (shotFilter === 'must' && item.must) || (shotFilter === 'open' && !shotDone[item.id]))); if (!items.length) return;
-      const section = document.createElement('section'); section.className = 'simple-check-group';
-      section.innerHTML = `<h2>${label}</h2><div class="simple-check-list">${items.map((item) => `<label class="simple-check-row ${shotDone[item.id] ? 'done' : ''}"><input type="checkbox" data-shot-id="${item.id}" ${shotDone[item.id] ? 'checked' : ''}><div><b>${escapeHTML(item.name)}</b><small>${escapeHTML(item.note)}</small></div>${item.must ? '<span class="row-badge">MUST</span>' : '<span class="row-badge">BONUS</span>'}</label>`).join('')}</div>`; root.appendChild(section);
+      const section = document.createElement('section'); section.className = 'shot-category';
+      section.innerHTML = `<div class="shot-category-head"><div><p class="kicker dark">${day.toUpperCase()}</p><h2>${label}</h2></div><span>${items.filter((item) => shotDone[item.id]).length} / ${items.length}</span></div><div class="shot-category-body">${items.map((item) => `<article class="shot-card ${shotDone[item.id] ? 'checked' : ''}"><label class="shot-check-main"><span class="shot-frame">${item.frame}</span><span class="shot-copy"><span class="shot-badges"><em class="${item.must ? 'priority-must' : 'priority-bonus'}">${item.must ? 'MUST' : 'BONUS'}</em><em>構図 ${item.frame}</em></span><b>${escapeHTML(item.name)}</b><p>${escapeHTML(item.composition)}</p><small>${escapeHTML(item.format)}</small></span><input type="checkbox" data-shot-id="${item.id}" ${shotDone[item.id] ? 'checked' : ''} aria-label="${escapeHTML(item.name)}を撮影済みにする"></label></article>`).join('')}</div>`; root.appendChild(section);
     });
     root.querySelectorAll('[data-shot-id]').forEach((input) => input.addEventListener('change', () => { shotDone[input.dataset.shotId] = input.checked; storage.set('shots', shotDone); renderShots(); }));
     const completed = shotItems.filter((item) => shotDone[item.id]).length; const total = shotItems.length;

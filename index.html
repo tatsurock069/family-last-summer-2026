@@ -10,16 +10,16 @@
   <meta name="apple-mobile-web-app-title" content="ラストサマー">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./assets/icons/icon-180.png">
-  <link rel="stylesheet" href="./assets/css/style.css?v=4">
-  <link rel="stylesheet" href="./assets/css/last-summer.css?v=4">
-  <script src="./assets/js/app.js?v=4" defer></script>
+  <link rel="stylesheet" href="./assets/css/style.css?v=6">
+  <link rel="stylesheet" href="./assets/css/last-summer.css?v=6">
+  <script src="./assets/js/app.js?v=6" defer></script>
   <title>関家 ラストサマー2026</title>
 </head>
 <body>
 <main class="app-shell">
   <section id="home" class="screen active" aria-hidden="false">
     <header class="last-summer-hero">
-      <img src="./assets/images/destinations/tomari-beach.jpg" alt="夏の海のイメージ" class="hero-photo">
+      <img src="./assets/images/destinations/wakasa-wada-beach.jpg" alt="若狭和田ビーチの白い砂浜と透明な海" class="hero-photo">
       <div class="hero-shade"></div>
       <div class="hero-top"><div><p class="wordmark">SEKI FAMILY · FINAL WEEKEND</p></div><p class="trip-date">AUG 15—16 · 2026</p></div>
       <div class="hero-copy">
@@ -51,13 +51,13 @@
       <section class="editorial-section">
         <div class="editorial-head"><div><p class="kicker dark">TWO-DAY STORY</p><h2>最後の週末、二つの夏。</h2></div></div>
         <div class="feature-pair summer-feature-pair">
-          <button type="button" class="feature-card night-feature" data-go="plan"><span class="feature-index">DAY 1</span><span class="feature-icon">🎡</span><span class="feature-copy"><b>山上のナイター</b><small>夕暮れ、アトラクション、夜景。</small></span></button>
-          <button type="button" class="feature-card sea-feature" data-go="plan"><span class="feature-index">DAY 2</span><span class="feature-icon">🌊</span><span class="feature-copy"><b>若狭和田ビーチ</b><small>子どもの体力が尽きるまで。</small></span></button>
+          <button type="button" class="feature-card night-feature" data-go="plan"><img class="feature-photo" src="./assets/images/destinations/ikoma-attraction.jpg" alt="生駒山上遊園地のアトラクション"><span class="feature-index">DAY 1</span><span class="feature-copy"><b>山上のナイター</b><small>夕暮れ、アトラクション、夜景。</small></span></button>
+          <button type="button" class="feature-card sea-feature" data-go="plan"><img class="feature-photo" src="./assets/images/destinations/wakasa-wada-beach.jpg" alt="若狭和田ビーチの白い砂浜と透明な海"><span class="feature-index">DAY 2</span><span class="feature-copy"><b>若狭和田ビーチ</b><small>子どもの体力が尽きるまで。</small></span></button>
         </div>
       </section>
 
       <section class="destination-story last-guide-story">
-        <img src="./assets/images/destinations/tomari-beach.jpg" alt="夏の海を楽しむ家族旅行のイメージ" loading="lazy">
+        <img src="./assets/images/destinations/wakasa-wada-beach.jpg" alt="若狭和田ビーチの白い砂浜と透明な海" loading="lazy">
         <div class="story-overlay"></div>
         <div class="story-copy"><p class="kicker">DESTINATION GUIDE</p><h2>行く前に知ると、<br>もっと面白い。</h2><button type="button" class="glass-button" data-go="guide">観光地紹介を見る →</button></div>
       </section>
@@ -110,9 +110,14 @@
   </section>
 
   <section id="shoot" class="screen" aria-hidden="true">
-    <header class="screen-hero shoot-header"><div><p class="kicker">FAMILY VLOG</p><h1>撮影</h1><p>撮りすぎず、物語になる瞬間を残す。</p></div></header>
+    <header class="screen-hero shoot-header"><div><p class="kicker">SHOT DIRECTOR</p><h1>旅を、一本の<br>映画にする。</h1><p>何を、どの構図で撮るか。現場で迷わない撮影指示書。</p></div></header>
     <div class="screen-content">
       <section class="progress-panel dark-panel"><div><p class="kicker">SHOOTING PROGRESS</p><strong id="shootProgress">0 / 0</strong></div><div class="progress"><i id="shootProgressBar"></i></div></section>
+      <details class="composition-guide" open>
+        <summary class="section-title"><div><p class="kicker dark">COMPOSITION SAMPLE</p><h2>この画角をまねる</h2></div><span>開閉 ＋</span></summary>
+        <div class="last-summer-composition"><img src="./assets/images/shot-samples/composition-last-summer.jpg" alt="遊園地・墓参り・海・夜景を題材にした4種類の撮影構図イラスト" loading="lazy"><div class="composition-key"><p><b>W｜ワイド</b><span>景色を主役に。家族は小さく下1/3へ。</span></p><p><b>C｜寄り</b><span>手元や表情へ近づき、背景を整理。</span></p><p><b>M｜動き</b><span>進む先に余白を残し、後ろから追う。</span></p><p><b>V｜縦</b><span>人物を左右1/3へ。光と奥行きを入れる。</span></p></div></div>
+      </details>
+      <div class="shoot-legend"><span><i>W</i>ワイド</span><span><i>C</i>寄り</span><span><i>M</i>動き</span><span><i>V</i>縦動画</span><span><i>S</i>環境音</span></div>
       <div class="shoot-filter-bar" role="group" aria-label="撮影項目フィルター"><button type="button" class="active" data-shot-filter="all">すべて</button><button type="button" data-shot-filter="must">必須</button><button type="button" data-shot-filter="open">未撮影</button></div>
       <div id="shotList"></div>
     </div>
@@ -146,15 +151,15 @@
           <div class="destination-copy"><small>DAY 1 · MEMORIAL</small><h2>生玉霊園</h2><p>今回の旅の最初に立ち寄るお墓参り先。自宅（天下茶屋）から向かい、家族で静かに手を合わせてから生駒山上遊園地へ移動する。ここでは撮影よりも参拝と周囲への配慮を優先。</p><div class="destination-facts"><span>静かに参拝</span><span>撮影は周囲に配慮</span><span>参拝後は生駒へ</span></div><div class="destination-actions"><a href="https://www.google.com/maps/search/?api=1&query=%E7%94%9F%E7%8E%89%E9%9C%8A%E5%9C%92" target="_blank" rel="noopener">地図 ↗</a><a href="https://www.google.com/maps/dir/?api=1&origin=%E5%A4%A9%E4%B8%8B%E8%8C%B6%E5%B1%8B&destination=%E7%94%9F%E7%8E%89%E9%9C%8A%E5%9C%92&travelmode=driving" target="_blank" rel="noopener">経路 ↗</a></div></div>
         </article>
         <article id="destination-ikoma" class="destination-card" data-guide-day="day1">
-          <img src="./assets/images/destinations/kasamatsu.jpg" alt="山上から広がる景色のイメージ" loading="lazy">
+          <img src="./assets/images/destinations/ikoma-attraction.jpg" alt="生駒山上遊園地のアトラクション" loading="lazy">
           <div class="destination-copy"><small>DAY 1 · NIGHT PARK</small><h2>生駒山上遊園地</h2><p>生駒山の山上にある、子どもから楽しめる遊園地。今回は入園無料を活かし、アトラクションは本当に乗りたいものだけを都度選ぶ。夕暮れから夜へ変わる山上の空気も主役。</p><div class="destination-facts"><span>入園無料</span><span>アトラクション都度課金</span><span>山上の夜景</span></div><div class="destination-actions"><a href="https://www.ikomasanjou.com/" target="_blank" rel="noopener">公式情報 ↗</a><a href="https://www.google.com/maps/search/?api=1&query=%E7%94%9F%E9%A7%92%E5%B1%B1%E4%B8%8A%E9%81%8A%E5%9C%92%E5%9C%B0" target="_blank" rel="noopener">地図 ↗</a></div></div>
         </article>
         <article id="destination-wada" class="destination-card" data-guide-day="day2">
-          <img src="./assets/images/destinations/tomari-beach.jpg" alt="家族で楽しむ穏やかな夏の海のイメージ" loading="lazy">
+          <img src="./assets/images/destinations/wakasa-wada-beach.jpg" alt="若狭和田ビーチの白い砂浜と透明な海" loading="lazy">
           <div class="destination-copy"><small>DAY 2 · LAST SUMMER BEACH</small><h2>若狭和田ビーチ</h2><p>福井県高浜町の海水浴場。家族7人で夏休み最後の海を遊び切る場所。弁当・飲み物・海グッズを持参し、15時を目安にしつつ子どもの体力と海況を優先する。</p><div class="destination-facts"><span>弁当・飲み物持参</span><span>海グッズ購入なし</span><span>体力・安全優先</span></div><div class="destination-actions"><a href="https://wakasa-takahama.jp/spot/wakasawada-beach/" target="_blank" rel="noopener">公式情報 ↗</a><a href="https://www.google.com/maps/search/?api=1&query=%E8%8B%A5%E7%8B%AD%E5%92%8C%E7%94%B0%E3%83%93%E3%83%BC%E3%83%81" target="_blank" rel="noopener">地図 ↗</a></div></div>
         </article>
       </div>
-      <p class="source-note">説明は施設・観光協会の公式情報をもとに要約。写真は旅の雰囲気を表すイメージです。営業状況や海況は当日に公式情報を確認してください。</p>
+      <p class="source-note">説明・写真：生駒山上遊園地公式サイト、若狭高浜観光協会公式サイト。撮影構図見本は今回の旅向けオリジナルイラストです。営業状況や海況は当日に公式情報を確認してください。</p>
     </div>
   </section>
 
