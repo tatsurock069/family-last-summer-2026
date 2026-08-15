@@ -198,8 +198,57 @@ document.addEventListener('DOMContentLoaded', () => {
     'bento':['🍱','おべんとうを みせる','いただきますを いおう'],'sand-art':['🏖️','すなで つくる','できたものを みんなに みせよう'],'family-photo':['😊','みんなで にっこり','おとなが とるときに えがおを みせよう'],
     'tired-car':['😴','くるまで やすむ','つかれたら ゆっくり しよう'],'ending':['🙌','たのしかったと いう','いちばん たのしかったことを いおう']
   };
+  const captureMissionLinks = {
+    'car-song':{shotId:'early-start',target:'車内で歌っている自然な表情',toddler:'くるまで うたっているかお'},
+    'best-memory':{shotId:'ending',target:'一番楽しかったことを話す短い動画',toddler:'たのしかったことを いうところ'},
+    'sea-first-look':{shotId:'sea-first-look',target:'海を見つけた瞬間のリアクション',toddler:'うみを みつけた かお'},
+    'first':{shotId:'run-to-sea',target:'海へ向かう後ろ姿',toddler:'うみへ いくところ'},
+    'wave-jump':{shotId:'water',target:'波に触れる瞬間と表情',toddler:'なみに さわるところ'},
+    'shell':{shotId:'water',target:'見つけた貝殻を手に持ったアップ',toddler:'みつけた かいがら'},
+    'art':{shotId:'sand-art',target:'砂の作品と作った本人',toddler:'すなで つくったものと いっしょ'},
+    'sand-message':{shotId:'sand-art',target:'砂に描いた文字や絵と手元',toddler:'すなに かいたもの'},
+    'bento-help':{shotId:'bento',target:'弁当を配るお手伝いの手元',toddler:'おべんとうの おてつだい'},
+    'family-line':{shotId:'family-photo',target:'海を背景に家族7人が並んだ写真',toddler:'みんなで にっこり'},
+    'final-look':{shotId:'ending',target:'海に手を振る後ろ姿',toddler:'うみに ばいばい'},
+    'laugh':{shotId:'family-photo',target:'変顔やおどけた顔のアップ',toddler:'おもしろい かお'},
+    'parent-photo':{shotId:'family-photo',target:'親子二人の自然な笑顔',toddler:'おやと にっこり'},
+    'sibling-photo':{shotId:'family-photo',target:'きょうだいが並んだ写真',toddler:'きょうだいと ならぶ'},
+    'high-five':{shotId:'family-photo',target:'きょうだいのハイタッチの瞬間',toddler:'きょうだいと はいたっち'},
+    'family-joke':{shotId:'family-photo',target:'家族が笑った瞬間',toddler:'みんなが わらった しゅんかん'},
+    'team-name':{shotId:'family-photo',target:'チーム名を言ってポーズ',toddler:'みんなで えいえいおー'},
+    'summer-promise':{shotId:'ending',target:'来年の夏にしたいことを話す一言',toddler:'また うみに いこうと いう'}
+  };
+  const toddlerProfileNames = {'優典':'ゆうすけ','綾菜':'あやな','慶典':'けいすけ','杏菜':'あんな','波瑠菜':'はるな'};
+  const profileDisplayName = (profile) => isToddlerUser() ? (toddlerProfileNames[profile] || profile) : (appUsers.find((user) => user.mission === profile)?.label || profile);
+  const captureRequestKey = (profile, missionId) => `${profile}::${missionId}`;
+  let captureRequests = storage.get('capture-requests', {});
   let shotDone = storage.get('shots', {}); let shotFilter = 'all';
+
+  function renderCaptureQueue() {
+    const root = document.getElementById('captureRequestList');
+    const requests = Object.entries(captureRequests).filter(([,request]) => captureMissionLinks[request.missionId] && !missionDone?.[request.profile]?.[request.missionId]);
+    document.getElementById('captureQueueKicker').textContent = isToddlerUser() ? 'みっしょん と しゃしん' : 'MISSION × SHOT';
+    document.getElementById('captureQueueTitle').textContent = isToddlerUser() ? 'とって ほしいもの' : '撮ってほしいもの';
+    document.getElementById('captureQueueCount').textContent = isToddlerUser() ? `${requests.length}こ` : `${requests.length}件`;
+    root.innerHTML = requests.length ? requests.map(([key,request]) => {
+      const item = missionItems.find((mission) => mission.id === request.missionId); const link = captureMissionLinks[request.missionId];
+      const mission = item ? (isToddlerUser() ? {...item,title:preschoolMissionTitles[item.id] || item.title} : missionForProfile(item, request.profile)) : null; const name = profileDisplayName(request.profile);
+      return `<article class="capture-request-card"><div class="capture-request-meta"><span>${escapeHTML(name)}</span><em>📷 ${isToddlerUser() ? 'とってね' : '撮影待ち'}</em></div><b>${escapeHTML(mission?.title || request.missionId)}</b><p>${escapeHTML(isToddlerUser() ? link.toddler : link.target)}</p><div class="capture-request-actions"><button type="button" class="capture-complete" data-capture-complete="${escapeHTML(key)}">${isToddlerUser() ? 'とれた！' : '撮れた！'}</button><button type="button" data-capture-witness="${escapeHTML(key)}">${isToddlerUser() ? 'みてもらった' : '見届けたのでクリア'}</button></div></article>`;
+    }).join('') : `<p class="capture-queue-empty">${isToddlerUser() ? 'とって ほしいものは まだ ないよ。' : 'ミッションから「撮影をお願い」すると、ここに並びます。'}</p>`;
+    root.querySelectorAll('[data-capture-complete]').forEach((button) => button.addEventListener('click', () => completeCaptureRequest(button.dataset.captureComplete, true)));
+    root.querySelectorAll('[data-capture-witness]').forEach((button) => button.addEventListener('click', () => completeCaptureRequest(button.dataset.captureWitness, false)));
+  }
+
+  function completeCaptureRequest(key, photographed) {
+    const request = captureRequests[key]; if (!request) return;
+    if (!missionDone[request.profile]) missionDone[request.profile] = {}; missionDone[request.profile][request.missionId] = true; storage.set('missions', missionDone);
+    if (photographed) { const shotId = captureMissionLinks[request.missionId]?.shotId; if (shotId) { shotDone[shotId] = true; storage.set('shots', shotDone); } }
+    delete captureRequests[key]; storage.set('capture-requests', captureRequests); renderShots(); renderMissions();
+    toast(isToddlerUser() ? `${profileDisplayName(request.profile)} できた！` : photographed ? '撮影とミッションを完了しました' : 'ミッションを完了しました');
+  }
+
   function renderShots() {
+    renderCaptureQueue();
     const root = document.getElementById('shotList'); root.innerHTML = '';
     [['day1','DAY 1 · 墓参りとナイター'],['day2',isToddlerUser() ? 'うみで やってみよう' : 'DAY 2 · 若狭和田ビーチ']].forEach(([day,label]) => {
       if (day1Complete && day === 'day1') return;
@@ -332,9 +381,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeProfile = currentUser.mission; let missionDone = storage.get('missions', {});
   let activeMissionCategory = 'all';
   function profileState(name) { if (!missionDone[name]) missionDone[name] = {}; return missionDone[name]; }
-  function missionForProfile(item) {
-    const young = missionProfiles[activeProfile]?.young;
-    const title = profileTitleOverrides[activeProfile]?.[item.id] || (young ? preschoolMissionTitles[item.id] : item.title);
+  function missionForProfile(item, profile = activeProfile) {
+    const young = missionProfiles[profile]?.young;
+    const title = profileTitleOverrides[profile]?.[item.id] || (young ? preschoolMissionTitles[item.id] : item.title);
     return {...item,title,note:young ? `おとなと いっしょに。${item.note}` : item.note};
   }
   function missionXp(item) { return item.category === 'common' ? 10 : item.category === 'creator' ? 15 : 20; }
@@ -347,7 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const categoryTabs = document.getElementById('missionCategories'); categoryTabs.innerHTML = `<button type="button" class="${activeMissionCategory === 'all' ? 'active' : ''}" data-mission-category="all">${categoryLabels.all}</button>${categoryKeys.map((key) => `<button type="button" class="${activeMissionCategory === key ? 'active' : ''}" data-mission-category="${key}">${categoryLabels[key]}</button>`).join('')}`;
     categoryTabs.querySelectorAll('[data-mission-category]').forEach((button) => button.addEventListener('click', () => { activeMissionCategory = button.dataset.missionCategory; renderMissions(); }));
     const pastMissionIds = new Set(['opening-shot','sunset-movie','ride-movie','night-wide']);
-    const state = profileState(activeProfile); const availableItems = missionItems.filter((item) => !(day1Complete && (item.category === 'day1' || pastMissionIds.has(item.id)))); const visibleItems = availableItems.filter((item) => activeMissionCategory === 'all' || item.category === activeMissionCategory).map(missionForProfile);
+    const state = profileState(activeProfile); const availableItems = missionItems.filter((item) => !(day1Complete && (item.category === 'day1' || pastMissionIds.has(item.id)))); const visibleItems = availableItems.filter((item) => activeMissionCategory === 'all' || item.category === activeMissionCategory).map((item) => missionForProfile(item));
     document.getElementById('mission').classList.toggle('toddler-mode', preschool);
     document.getElementById('missionKicker').textContent = preschool ? 'こども みっしょん' : 'KIDS QUEST';
     document.getElementById('missionHeroTitle').innerHTML = preschool ? 'たびを あそびに<br>かえよう。' : '旅を遊びに<br>変えよう。';
@@ -355,8 +404,16 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('missionRankKicker').textContent = preschool ? 'いまの らんく' : 'YOUR RANK'; document.getElementById('kidsXpLabel').textContent = preschool ? 'ぽいんと' : 'XP';
     document.getElementById('missionModeBadge').textContent = assisted ? 'おとなと いっしょ' : preschool ? 'じぶんの きろく' : '記録中';
     document.getElementById('missionResultKicker').textContent = preschool ? 'けっか' : 'RESULT';
-    document.getElementById('missionList').innerHTML = visibleItems.map((item) => `<label class="mission-card ${state[item.id] ? 'completed' : ''}"><input type="checkbox" data-mission-id="${item.id}" ${state[item.id] ? 'checked' : ''}><span class="mission-emoji">${item.emoji}</span><b>${escapeHTML(item.title)}</b><small>${assisted ? 'おとなと いっしょ' : `+${missionXp(item)} ${preschool ? 'ぽいんと' : 'XP'}`}</small></label>`).join('');
+    document.getElementById('missionList').innerHTML = visibleItems.map((item) => {
+      const captureLink = captureMissionLinks[item.id]; const requestKey = captureRequestKey(activeProfile, item.id); const requested = Boolean(captureRequests[requestKey]);
+      if (!captureLink) return `<label class="mission-card ${state[item.id] ? 'completed' : ''}"><input type="checkbox" data-mission-id="${item.id}" ${state[item.id] ? 'checked' : ''}><span class="mission-emoji">${item.emoji}</span><b>${escapeHTML(item.title)}</b><small>${assisted ? 'おとなと いっしょ' : `+${missionXp(item)} ${preschool ? 'ぽいんと' : 'XP'}`}</small></label>`;
+      const captureStatus = state[item.id] ? (preschool ? '📷 とれた！' : '📷 撮影完了') : preschool ? '📷 とって もらったら できた' : `📷 撮ってもらったらクリア · +${missionXp(item)} XP`;
+      const action = state[item.id] ? '' : requested ? `<button type="button" class="mission-capture-button requested" data-capture-cancel="${escapeHTML(requestKey)}">${preschool ? 'おねがいしたよ · やめる' : '撮影待ち · 取り消す'}</button>` : `<button type="button" class="mission-capture-button" data-capture-request="${item.id}">${preschool ? 'おとなに とってもらう' : '撮影をお願い'}</button>`;
+      return `<article class="mission-card capture-mission ${state[item.id] ? 'completed' : ''} ${requested ? 'requested' : ''}"><span class="mission-emoji">${item.emoji}</span><b>${escapeHTML(item.title)}</b><small>${captureStatus}</small>${action}</article>`;
+    }).join('');
     document.querySelectorAll('[data-mission-id]').forEach((input) => input.addEventListener('change', () => { const before = availableItems.filter((item) => state[item.id]).length; state[input.dataset.missionId] = input.checked; storage.set('missions', missionDone); renderMissions(); if (input.checked) toast(Math.floor((before + 1) / 5) > Math.floor(before / 5) ? (preschool ? 'らんくあっぷ！' : 'ランクアップ！') : (preschool ? `${displayName} できた！` : 'ミッションクリア！')); }));
+    document.querySelectorAll('[data-capture-request]').forEach((button) => button.addEventListener('click', () => { const missionId = button.dataset.captureRequest; const key = captureRequestKey(activeProfile, missionId); captureRequests[key] = {profile:activeProfile,missionId,requestedAt:Date.now()}; storage.set('capture-requests', captureRequests); renderMissions(); renderShots(); toast(preschool ? 'おとなに おねがいしたよ' : '撮影リストに追加しました'); }));
+    document.querySelectorAll('[data-capture-cancel]').forEach((button) => button.addEventListener('click', () => { delete captureRequests[button.dataset.captureCancel]; storage.set('capture-requests', captureRequests); renderMissions(); renderShots(); toast(preschool ? 'おねがいを やめたよ' : '撮影依頼を取り消しました'); }));
     const cleared = availableItems.filter((item) => state[item.id]).length; const totalMissions = availableItems.length; const rankIndex = Math.min(Math.floor(cleared / 5), missionRanks.length - 1); const nextAt = Math.min(totalMissions, (rankIndex + 1) * 5);
     const completedItems = availableItems.filter((item) => state[item.id]); const xp = completedItems.reduce((sum,item) => sum + missionXp(item), 0);
     const rankName = (preschool ? preschoolMissionRanks : missionRanks)[rankIndex];
@@ -373,7 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const missionResult = document.getElementById('missionResult');
   document.getElementById('toggleMissionResult').addEventListener('click', (event) => { missionResult.hidden = !missionResult.hidden; event.currentTarget.setAttribute('aria-expanded', String(!missionResult.hidden)); const preschool = isToddlerUser(); event.currentTarget.querySelector('span').textContent = missionResult.hidden ? (preschool ? 'できたものを みる' : '達成状況を確認') : (preschool ? 'できたものを とじる' : '達成状況を閉じる'); });
-  document.getElementById('resetMissions').addEventListener('click', () => { const preschool = isToddlerUser(); if (!window.confirm(preschool ? `${currentUser.label}の みっしょんを ぜんぶ やりなおす？` : `${currentUser.label}のミッションをすべてリセットしますか？`)) return; missionDone[activeProfile] = {}; storage.set('missions', missionDone); renderMissions(); toast(preschool ? 'みっしょんを やりなおしたよ' : 'ミッションをリセットしました'); });
+  document.getElementById('resetMissions').addEventListener('click', () => { const preschool = isToddlerUser(); if (!window.confirm(preschool ? `${currentUser.label}の みっしょんを ぜんぶ やりなおす？` : `${currentUser.label}のミッションをすべてリセットしますか？`)) return; missionDone[activeProfile] = {}; Object.keys(captureRequests).filter((key) => captureRequests[key].profile === activeProfile).forEach((key) => delete captureRequests[key]); storage.set('missions', missionDone); storage.set('capture-requests', captureRequests); renderMissions(); renderShots(); toast(preschool ? 'みっしょんを やりなおしたよ' : 'ミッションをリセットしました'); });
 
   // Packing checklist
   const packingItems = {
