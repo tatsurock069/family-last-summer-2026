@@ -19,7 +19,7 @@ create table if not exists public.trip_members (
 create table if not exists public.capture_requests (
   trip_id uuid not null references public.family_trips(id) on delete cascade,
   request_key text not null,
-  requester_profile text not null,
+  requester_profile text not null check (requester_profile in ('parent','yusuke','ayana','keisuke','anna','haruna')),
   mission_id text not null,
   status text not null check (status in ('requested','completed','cancelled')),
   photographed boolean not null default false,
@@ -30,42 +30,157 @@ create table if not exists public.capture_requests (
   primary key (trip_id,request_key)
 );
 
+update public.capture_requests
+set requester_profile = case requester_profile
+  when '優典' then 'yusuke' when '綾菜' then 'ayana' when '慶典' then 'keisuke'
+  when '杏菜' then 'anna' when '波瑠菜' then 'haruna' else requester_profile end;
+
+do $$
+begin
+  alter table public.capture_requests add constraint capture_requests_requester_profile_check
+    check (requester_profile in ('parent','yusuke','ayana','keisuke','anna','haruna'));
+exception when duplicate_object then null;
+end $$;
+
+create table if not exists public.mission_progress (
+  trip_id uuid not null references public.family_trips(id) on delete cascade,
+  profile_id text not null check (profile_id in ('yusuke','ayana','keisuke','anna','haruna')),
+  mission_id text not null,
+  completed boolean not null default false,
+  actor_profile text,
+  updated_by uuid references auth.users(id) on delete set null,
+  updated_at timestamptz not null default now(),
+  primary key (trip_id,profile_id,mission_id)
+);
+
+create table if not exists public.shot_progress (
+  trip_id uuid not null references public.family_trips(id) on delete cascade,
+  shot_id text not null,
+  completed boolean not null default false,
+  actor_profile text,
+  updated_by uuid references auth.users(id) on delete set null,
+  updated_at timestamptz not null default now(),
+  primary key (trip_id,shot_id)
+);
+
 alter table public.family_trips enable row level security;
 alter table public.trip_members enable row level security;
 alter table public.capture_requests enable row level security;
+alter table public.mission_progress enable row level security;
+alter table public.shot_progress enable row level security;
 
+drop policy if exists "members can see own membership" on public.trip_members;
 create policy "members can see own membership"
 on public.trip_members for select to authenticated
 using (user_id = (select auth.uid()));
 
+drop policy if exists "members can update own profile" on public.trip_members;
 create policy "members can update own profile"
 on public.trip_members for update to authenticated
 using (user_id = (select auth.uid()))
 with check (user_id = (select auth.uid()));
 
-create policy "family members can read capture requests"
+drop policy if exists "family members can read capture requests" on public.capture_requests;
+drop policy if exists "parent and requester can read capture requests" on public.capture_requests;
+create policy "parent and requester can read capture requests"
 on public.capture_requests for select to authenticated
 using (exists (
   select 1 from public.trip_members m
   where m.trip_id = capture_requests.trip_id and m.user_id = (select auth.uid())
+    and (m.profile_id = 'parent' or m.profile_id = capture_requests.requester_profile)
 ));
 
-create policy "family members can add capture requests"
+drop policy if exists "family members can add capture requests" on public.capture_requests;
+drop policy if exists "members can add own capture requests" on public.capture_requests;
+create policy "members can add own capture requests"
 on public.capture_requests for insert to authenticated
 with check (exists (
   select 1 from public.trip_members m
   where m.trip_id = capture_requests.trip_id and m.user_id = (select auth.uid())
+    and m.profile_id = capture_requests.requester_profile
 ));
 
-create policy "family members can update capture requests"
+drop policy if exists "family members can update capture requests" on public.capture_requests;
+drop policy if exists "parent completes requester manages capture requests" on public.capture_requests;
+create policy "parent completes requester manages capture requests"
 on public.capture_requests for update to authenticated
 using (exists (
   select 1 from public.trip_members m
   where m.trip_id = capture_requests.trip_id and m.user_id = (select auth.uid())
+    and (m.profile_id = 'parent' or m.profile_id = capture_requests.requester_profile)
 ))
 with check (exists (
   select 1 from public.trip_members m
   where m.trip_id = capture_requests.trip_id and m.user_id = (select auth.uid())
+    and (m.profile_id = 'parent' or (
+      m.profile_id = capture_requests.requester_profile
+      and capture_requests.status in ('requested','cancelled')
+      and capture_requests.photographed = false
+    ))
+));
+
+drop policy if exists "parent reads every mission progress" on public.mission_progress;
+create policy "parent reads every mission progress"
+on public.mission_progress for select to authenticated
+using (exists (
+  select 1 from public.trip_members m
+  where m.trip_id = mission_progress.trip_id and m.user_id = (select auth.uid())
+    and (m.profile_id = 'parent' or m.profile_id = mission_progress.profile_id)
+));
+
+drop policy if exists "parent or owner adds mission progress" on public.mission_progress;
+create policy "parent or owner adds mission progress"
+on public.mission_progress for insert to authenticated
+with check (exists (
+  select 1 from public.trip_members m
+  where m.trip_id = mission_progress.trip_id and m.user_id = (select auth.uid())
+    and (m.profile_id = 'parent' or m.profile_id = mission_progress.profile_id)
+));
+
+drop policy if exists "parent or owner updates mission progress" on public.mission_progress;
+create policy "parent or owner updates mission progress"
+on public.mission_progress for update to authenticated
+using (exists (
+  select 1 from public.trip_members m
+  where m.trip_id = mission_progress.trip_id and m.user_id = (select auth.uid())
+    and (m.profile_id = 'parent' or m.profile_id = mission_progress.profile_id)
+))
+with check (exists (
+  select 1 from public.trip_members m
+  where m.trip_id = mission_progress.trip_id and m.user_id = (select auth.uid())
+    and (m.profile_id = 'parent' or m.profile_id = mission_progress.profile_id)
+));
+
+drop policy if exists "shooting team reads shot progress" on public.shot_progress;
+create policy "shooting team reads shot progress"
+on public.shot_progress for select to authenticated
+using (exists (
+  select 1 from public.trip_members m
+  where m.trip_id = shot_progress.trip_id and m.user_id = (select auth.uid())
+    and m.profile_id in ('parent','yusuke','ayana')
+));
+
+drop policy if exists "shooting team adds shot progress" on public.shot_progress;
+create policy "shooting team adds shot progress"
+on public.shot_progress for insert to authenticated
+with check (exists (
+  select 1 from public.trip_members m
+  where m.trip_id = shot_progress.trip_id and m.user_id = (select auth.uid())
+    and m.profile_id in ('parent','yusuke','ayana')
+));
+
+drop policy if exists "shooting team updates shot progress" on public.shot_progress;
+create policy "shooting team updates shot progress"
+on public.shot_progress for update to authenticated
+using (exists (
+  select 1 from public.trip_members m
+  where m.trip_id = shot_progress.trip_id and m.user_id = (select auth.uid())
+    and m.profile_id in ('parent','yusuke','ayana')
+))
+with check (exists (
+  select 1 from public.trip_members m
+  where m.trip_id = shot_progress.trip_id and m.user_id = (select auth.uid())
+    and m.profile_id in ('parent','yusuke','ayana')
 ));
 
 create or replace function public.join_family_trip(
@@ -107,9 +222,23 @@ grant execute on function public.join_family_trip(uuid,text,text) to authenticat
 
 grant select,update on public.trip_members to authenticated;
 grant select,insert,update on public.capture_requests to authenticated;
+grant select,insert,update on public.mission_progress to authenticated;
+grant select,insert,update on public.shot_progress to authenticated;
 
 do $$
 begin
   alter publication supabase_realtime add table public.capture_requests;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.mission_progress;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.shot_progress;
 exception when duplicate_object then null;
 end $$;
