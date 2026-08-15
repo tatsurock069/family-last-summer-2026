@@ -10,9 +10,12 @@
   <meta name="apple-mobile-web-app-title" content="ラストサマー">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./assets/icons/icon-180.png">
-  <link rel="stylesheet" href="./assets/css/style.css?v=13">
-  <link rel="stylesheet" href="./assets/css/last-summer.css?v=13">
-  <script src="./assets/js/app.js?v=13" defer></script>
+  <link rel="stylesheet" href="./assets/css/style.css?v=14">
+  <link rel="stylesheet" href="./assets/css/last-summer.css?v=14">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+  <script src="./assets/js/sync-config.js?v=14" defer></script>
+  <script src="./assets/js/sync.js?v=14" defer></script>
+  <script src="./assets/js/app.js?v=14" defer></script>
   <title>関家 ラストサマー2026</title>
 </head>
 <body>
@@ -114,7 +117,7 @@
     <div class="screen-content">
       <section class="progress-panel dark-panel"><div><p class="kicker">SHOOTING PROGRESS</p><strong id="shootProgress">0 / 0</strong></div><div class="progress"><i id="shootProgressBar"></i></div></section>
       <section class="capture-queue" id="captureQueue">
-        <div class="capture-queue-head"><div><p class="kicker dark" id="captureQueueKicker">MISSION × SHOT</p><h2 id="captureQueueTitle">撮ってほしいもの</h2></div><strong id="captureQueueCount">0</strong></div>
+        <div class="capture-queue-head"><div><p class="kicker dark" id="captureQueueKicker">MISSION × SHOT</p><h2 id="captureQueueTitle">撮ってほしいもの</h2></div><div class="capture-queue-tools"><button type="button" class="family-sync-state local" id="familySyncState" aria-label="家族同期を設定"><i></i><em>この端末だけ</em></button><strong id="captureQueueCount">0</strong></div></div>
         <div id="captureRequestList"></div>
       </section>
       <details class="composition-guide" open>
@@ -227,6 +230,20 @@
       <button type="button" data-login-user="anna"><b>あんな</b><small>ようちえん</small></button>
       <button type="button" data-login-user="haruna"><b>はるな</b><small>おとなと いっしょ</small></button>
     </div>
+  </section>
+</div>
+<div class="app-modal family-sync-modal" id="familySyncModal" aria-hidden="true">
+  <div class="modal-backdrop"></div>
+  <section class="modal-card family-sync-card" role="dialog" aria-modal="true" aria-labelledby="familySyncTitle">
+    <p class="kicker dark" id="familySyncKicker">FAMILY SYNC</p>
+    <h2 id="familySyncTitle">家族の端末とつなぐ</h2>
+    <p class="modal-description" id="familySyncDescription">家族コードを一度入力すると、撮影のお願いと完了が全員に届きます。</p>
+    <form id="familySyncForm">
+      <label><span id="familySyncCodeLabel">家族コード</span><input id="familySyncCode" required maxlength="16" autocomplete="one-time-code" autocapitalize="characters" inputmode="text" placeholder="例：ABC123"></label>
+      <p class="form-error" id="familySyncError" role="alert" hidden></p>
+      <button class="solid-button" type="submit" id="familySyncSubmit">つなぐ</button>
+      <button class="outline-button" type="button" id="familySyncLater">あとで</button>
+    </form>
   </section>
 </div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
