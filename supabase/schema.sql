@@ -394,3 +394,77 @@ do $$ begin alter publication supabase_realtime add table public.trip_runtime; e
 do $$ begin alter publication supabase_realtime add table public.shopping_items; exception when duplicate_object then null; end $$;
 do $$ begin alter publication supabase_realtime add table public.packing_progress; exception when duplicate_object then null; end $$;
 do $$ begin alter publication supabase_realtime add table public.meal_progress; exception when duplicate_object then null; end $$;
+
+-- v19: provisional mission points, stale-write protection, and shared-list ownership
+alter table public.mission_progress add column if not exists submitted_at timestamptz;
+alter table public.mission_progress add column if not exists approved_at timestamptz;
+update public.mission_progress set submitted_at=coalesce(submitted_at,updated_at) where submitted_at is null and status='pending';
+update public.mission_progress set approved_at=coalesce(approved_at,updated_at) where approved_at is null and status='approved';
+
+update public.shot_progress set status='open',completed=false where status='retake';
+alter table public.shot_progress drop constraint if exists shot_progress_status_check;
+alter table public.shot_progress add constraint shot_progress_status_check check (status in ('open','done'));
+
+drop policy if exists "parent or owner updates mission progress" on public.mission_progress;
+create policy "parent or owner updates mission progress" on public.mission_progress for update to authenticated
+using (exists (
+  select 1 from public.trip_members m where m.trip_id=mission_progress.trip_id and m.user_id=(select auth.uid())
+    and (m.profile_id='parent' or (m.profile_id=mission_progress.profile_id and mission_progress.status<>'approved'))
+))
+with check (exists (
+  select 1 from public.trip_members m where m.trip_id=mission_progress.trip_id and m.user_id=(select auth.uid())
+    and (m.profile_id='parent' or (m.profile_id=mission_progress.profile_id and mission_progress.completed=false and mission_progress.status in ('pending','rejected')))
+));
+
+create or replace function public.prevent_stale_trip_update() returns trigger
+language plpgsql set search_path=public as $$
+begin
+  if new.updated_at < old.updated_at then return old; end if;
+  return new;
+end; $$;
+
+do $$
+declare table_name text;
+begin
+  foreach table_name in array array['capture_requests','mission_progress','shot_progress','expenses','trip_runtime','shopping_items','packing_progress','meal_progress'] loop
+    execute format('drop trigger if exists prevent_stale_update on public.%I',table_name);
+    execute format('create trigger prevent_stale_update before update on public.%I for each row execute function public.prevent_stale_trip_update()',table_name);
+  end loop;
+end $$;
+
+create or replace function public.protect_shopping_structure() returns trigger
+language plpgsql security definer set search_path=public as $$
+declare member_profile text;
+begin
+  select profile_id into member_profile from public.trip_members where trip_id=old.trip_id and user_id=(select auth.uid());
+  if member_profile is distinct from 'parent' and (
+    new.category is distinct from old.category or new.name is distinct from old.name or new.qty is distinct from old.qty or
+    new.assigned_profile is distinct from old.assigned_profile or new.custom is distinct from old.custom or new.deleted is distinct from old.deleted
+  ) then raise exception 'only parent can change shopping item details'; end if;
+  return new;
+end; $$;
+drop trigger if exists protect_shopping_structure on public.shopping_items;
+create trigger protect_shopping_structure before update on public.shopping_items for each row execute function public.protect_shopping_structure();
+
+drop policy if exists "family manages shopping" on public.shopping_items;
+drop policy if exists "family reads shopping" on public.shopping_items;
+drop policy if exists "parent creates shopping" on public.shopping_items;
+drop policy if exists "family checks shopping" on public.shopping_items;
+create policy "family reads shopping" on public.shopping_items for select to authenticated
+using (exists (select 1 from public.trip_members m where m.trip_id=shopping_items.trip_id and m.user_id=(select auth.uid())));
+create policy "parent creates shopping" on public.shopping_items for insert to authenticated
+with check (exists (select 1 from public.trip_members m where m.trip_id=shopping_items.trip_id and m.user_id=(select auth.uid()) and m.profile_id='parent'));
+create policy "family checks shopping" on public.shopping_items for update to authenticated
+using (exists (select 1 from public.trip_members m where m.trip_id=shopping_items.trip_id and m.user_id=(select auth.uid())))
+with check (exists (select 1 from public.trip_members m where m.trip_id=shopping_items.trip_id and m.user_id=(select auth.uid())));
+
+insert into public.shopping_items(trip_id,item_id,category,name,qty,custom,completed,deleted,actor_profile,updated_at)
+select t.id,v.item_id,v.category,v.name,v.qty,false,false,false,'parent',now()
+from (values
+ ('udon','day1','冷凍うどん','7人分'),('udon-topping','day1','うどん用具材','ねぎ・卵・天かす等'),('day1-drink','day1','DAY1の飲み物','必要な場合のみ'),
+ ('rice','bento','弁当用のごはん','7人分'),('bento-main','bento','弁当のおかず','傷みにくいもの'),('bento-side','bento','塩分補給できる副菜','梅・塩気を意識'),('fruit','bento','果物・デザート','保冷できる分だけ'),
+ ('water','drink','水・お茶','多め'),('sports','drink','スポーツドリンク','熱中症対策'),('ice','drink','氷・保冷剤','クーラーボックス用'),
+ ('snacks','snack','お菓子','車内・海休憩用'),('salt','snack','塩分タブレット','予備'),('bags','snack','ゴミ袋','濡れ物にも使う')
+) as v(item_id,category,name,qty)
+join public.family_trips t on t.id='6a146942-f6c1-47c3-88b7-626e4c1995b1'::uuid
+on conflict(trip_id,item_id) do nothing;

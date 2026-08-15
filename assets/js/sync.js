@@ -12,7 +12,11 @@
     constructor(options) {
       Object.assign(this, options);
       this.client = null; this.userId = null; this.joined = false; this.channel = null;
-      this.pending = readPending(); this.flushing = false; this.lastSyncAt = null;
+      this.pending = readPending(); this.flushing = false; this.lastSyncAt = null; this.missionStates = new Map();
+      this.sources = [
+        ['capture_requests','onCaptureRow'],['mission_progress','onMissionRow'],['shot_progress','onShotRow'],['expenses','onExpenseRow'],
+        ['trip_runtime','onRuntimeRow'],['shopping_items','onShoppingRow'],['packing_progress','onPackingRow'],['meal_progress','onMealRow']
+      ];
       this.handleOnline = () => this.status(this.pending.length ? 'pending' : 'online');
     }
     get configured() { return Boolean(config.enabled && config.supabaseUrl && config.supabaseAnonKey && config.tripId && window.supabase?.createClient); }
@@ -39,15 +43,10 @@
     }
     async connect() {
       this.joined = true;
-      const sources = [
-        ['capture_requests','onCaptureRow'],['mission_progress','onMissionRow'],['shot_progress','onShotRow'],['expenses','onExpenseRow'],
-        ['trip_runtime','onRuntimeRow'],['shopping_items','onShoppingRow'],['packing_progress','onPackingRow'],['meal_progress','onMealRow']
-      ];
-      const results = await Promise.all(sources.map(([table]) => this.client.from(table).select('*').eq('trip_id',config.tripId).order('updated_at',{ascending:true})));
-      for (let index=0; index<sources.length; index+=1) { if (results[index].error) throw results[index].error; results[index].data.forEach((row) => this[sources[index][1]]?.(row,true)); }
+      await this.refresh(true);
       if (this.channel) await this.client.removeChannel(this.channel);
-      this.channel = this.client.channel(`family-v18-${config.tripId}`);
-      sources.forEach(([table,callback]) => this.channel.on('postgres_changes',{event:'*',schema:'public',table,filter:`trip_id=eq.${config.tripId}`},(payload) => { if (payload.new) this[callback]?.(payload.new,false); }));
+      this.channel = this.client.channel(`family-v20-${config.tripId}`);
+      this.sources.forEach(([table,callback]) => this.channel.on('postgres_changes',{event:'*',schema:'public',table,filter:`trip_id=eq.${config.tripId}`},(payload) => { if (payload.new) { if(table==='mission_progress')this.missionStates.set(`${payload.new.profile_id}:${payload.new.mission_id}`,payload.new.status); this[callback]?.(payload.new,false); } }));
       this.channel.subscribe((state) => {
         if (state === 'SUBSCRIBED') { this.lastSyncAt = now(); this.status(this.pending.length ? 'pending' : 'online'); }
         else if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT') this.status(navigator.onLine ? 'error' : 'offline');
@@ -55,14 +54,21 @@
       window.addEventListener('online',this.handleOnline); window.addEventListener('offline',() => this.status('offline'),{passive:true});
       await this.flush();
     }
+    async refresh(initial = false) {
+      if (!this.joined || !navigator.onLine) return false;
+      this.status('connecting');
+      const results=await Promise.all(this.sources.map(([table])=>this.client.from(table).select('*').eq('trip_id',config.tripId).order('updated_at',{ascending:true})));
+      for(let index=0;index<this.sources.length;index+=1){if(results[index].error)throw results[index].error;results[index].data.forEach((row)=>{if(this.sources[index][0]==='mission_progress')this.missionStates.set(`${row.profile_id}:${row.mission_id}`,row.status);this[this.sources[index][1]]?.(row,initial);});}
+      this.lastSyncAt=now();this.status(this.pending.length?'pending':'online');return true;
+    }
     operationKey(operation) {
       if (operation.type === 'capture') return operation.requestKey;
       if (operation.type === 'mission') return `${operation.profileId}:${operation.missionId}`;
       return operation.id || operation.shotId || operation.itemId || 'runtime';
     }
     targetForOperation(operation) {
-      const base = {trip_id:config.tripId,actor_profile:this.profileId,updated_by:this.userId,updated_at:now()};
-      if (operation.type === 'mission') { const status = operation.status || (operation.completed ? (this.profileId === 'parent' ? 'approved' : 'pending') : 'rejected'); return {table:'mission_progress',conflict:'trip_id,profile_id,mission_id',row:{...base,profile_id:operation.profileId,mission_id:operation.missionId,status,completed:status === 'approved'}}; }
+      const base = {trip_id:config.tripId,actor_profile:this.profileId,updated_by:this.userId,updated_at:operation.occurredAt || now()};
+      if (operation.type === 'mission') { const status = operation.status || (operation.completed ? (this.profileId === 'parent' ? 'approved' : 'pending') : 'rejected'); const row={...base,profile_id:operation.profileId,mission_id:operation.missionId,status,completed:status === 'approved'}; if(status==='pending')row.submitted_at=operation.occurredAt||now();if(status==='approved')row.approved_at=operation.occurredAt||now();return {table:'mission_progress',conflict:'trip_id,profile_id,mission_id',row}; }
       if (operation.type === 'shot') { const status = operation.status || (operation.completed ? 'done' : 'open'); return {table:'shot_progress',conflict:'trip_id,shot_id',row:{...base,shot_id:operation.shotId,status,completed:status === 'done',assigned_profile:operation.assignedProfile || null}}; }
       if (operation.type === 'expense') return {table:'expenses',conflict:'trip_id,expense_id',row:{...base,expense_id:operation.id,name:operation.name,amount:operation.amount,category:operation.category,deleted:Boolean(operation.deleted)}};
       if (operation.type === 'runtime') return {table:'trip_runtime',conflict:'trip_id',row:{...base,current_step_index:operation.currentStepIndex,delay_minutes:operation.delayMinutes}};
@@ -79,10 +85,18 @@
     saveShopping(item,completed,deleted=false,assignedProfile=null) { return this.saveOperation({type:'shopping',item,completed,deleted,assignedProfile,id:item.id}); }
     savePacking(itemId,completed,assignedProfile=null) { return this.saveOperation({type:'packing',itemId,completed,assignedProfile,id:itemId}); }
     saveMeal(itemId,completed) { return this.saveOperation({type:'meal',itemId,completed,id:itemId}); }
+    async runOperation(operation) {
+      const target=this.targetForOperation(operation);
+      let result;
+      if(operation.type==='shopping'&&this.profileId!=='parent'&&!operation.deleted){result=await this.client.from('shopping_items').update({completed:Boolean(operation.completed),actor_profile:this.profileId,updated_by:this.userId,updated_at:operation.occurredAt||now()}).eq('trip_id',config.tripId).eq('item_id',operation.item.id);}
+      else result=await this.client.from(target.table).upsert(target.row,{onConflict:target.conflict});
+      if(!result.error&&operation.type==='mission')this.missionStates.set(`${operation.profileId}:${operation.missionId}`,target.row.status);
+      return result;
+    }
     async saveOperation(operation) {
-      const item = {...operation,queuedAt:Date.now()};
+      const item = {...operation,queuedAt:Date.now(),occurredAt:operation.occurredAt||now()};
       if (!this.joined || !navigator.onLine) { this.queue(item); this.status(this.joined ? 'offline' : 'join-required'); return false; }
-      await this.flush(); const target = this.targetForOperation(item); const result = await this.client.from(target.table).upsert(target.row,{onConflict:target.conflict});
+      await this.flush(); if(item.type==='mission'&&this.profileId!=='parent'&&this.missionStates.get(`${item.profileId}:${item.missionId}`)==='approved')return true; const result = await this.runOperation(item);
       if (result.error) { this.queue(item); this.status(navigator.onLine ? 'error' : 'offline',result.error.message); return false; }
       this.lastSyncAt = now(); this.status('online'); return true;
     }
@@ -94,7 +108,7 @@
     async flush() {
       if (!this.joined || !navigator.onLine || this.flushing || !this.pending.length) { this.status(this.joined ? (navigator.onLine ? 'online' : 'offline') : 'join-required'); return; }
       this.flushing = true; const waiting = [...this.pending]; this.pending=[]; writePending(this.pending);
-      for (const operation of waiting) { const target=this.targetForOperation({...operation,type:operation.type || 'capture'}); const result=await this.client.from(target.table).upsert(target.row,{onConflict:target.conflict}); if (result.error) this.queue(operation); }
+      for (const operation of waiting) { const item={...operation,type:operation.type||'capture',occurredAt:operation.occurredAt||new Date(operation.queuedAt||Date.now()).toISOString()};if(item.type==='mission'&&this.profileId!=='parent'&&this.missionStates.get(`${item.profileId}:${item.missionId}`)==='approved')continue;const result=await this.runOperation(item);if(result.error)this.queue(item); }
       this.flushing=false; if (!this.pending.length) this.lastSyncAt=now(); this.status(this.pending.length ? 'error' : 'online');
     }
   }

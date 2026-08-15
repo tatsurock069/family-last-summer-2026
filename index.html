@@ -10,12 +10,12 @@
   <meta name="apple-mobile-web-app-title" content="ラストサマー">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./assets/icons/icon-180.png">
-  <link rel="stylesheet" href="./assets/css/style.css?v=18">
-  <link rel="stylesheet" href="./assets/css/last-summer.css?v=18">
+  <link rel="stylesheet" href="./assets/css/style.css?v=20">
+  <link rel="stylesheet" href="./assets/css/last-summer.css?v=20">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
-  <script src="./assets/js/sync-config.js?v=18" defer></script>
-  <script src="./assets/js/sync.js?v=18" defer></script>
-  <script src="./assets/js/app.js?v=18" defer></script>
+  <script src="./assets/js/sync-config.js?v=20" defer></script>
+  <script src="./assets/js/sync.js?v=20" defer></script>
+  <script src="./assets/js/app.js?v=20" defer></script>
   <title>関家 ラストサマー2026</title>
 </head>
 <body>
@@ -75,6 +75,7 @@
   <section id="plan" class="screen" aria-hidden="true">
     <header class="screen-hero plan-hero"><div><p class="kicker">RUN OF SHOW</p><h1>旅程</h1><p>時刻は目安。家族の体力と安全を最優先。</p></div></header>
     <div class="screen-content">
+      <button type="button" class="completed-route-toggle" id="toggleCompletedRoutes" hidden>完了した予定を表示</button>
       <section class="trip-day-section open" data-trip-day="1">
         <div class="day-heading trip-day-heading"><span>DAY 1</span><div><h2>祈りから、夜景へ。</h2><p>AUG 15 · SAT</p></div><button type="button" class="day-inline-toggle" aria-expanded="true" aria-controls="dayOnePanel" aria-label="1日目を閉じる"><i>⌃</i></button></div>
         <div id="dayOnePanel" class="day-content">
@@ -142,6 +143,7 @@
         <div class="mission-summary-copy"><div class="mission-summary-head"><p class="kicker" id="missionRankKicker">YOUR RANK</p></div><h2 id="missionRank">ラストサマー・ルーキー</h2><p id="missionProgressText">0 / 75 ミッション</p><p id="missionNextRank">あと5個でランクアップ</p><div class="mission-profile-identity"><span id="missionModeBadge">記録中</span><b id="missionPlayerName">優典</b></div></div>
         <button type="button" id="toggleMissionResult" class="mission-status-toggle" aria-expanded="false"><span>達成状況を確認</span><i aria-hidden="true">›</i></button>
       </section>
+      <section id="missionFamilyBoard" class="mission-family-board" hidden></section>
       <div id="missionProfiles" class="mission-profile-tabs" aria-label="ログイン中のユーザー" hidden></div>
       <div id="missionCategories" class="mission-tabs" aria-label="ミッションカテゴリ"></div>
       <section class="mission-result" id="missionResult" hidden><div class="section-title"><div><p class="kicker dark" id="missionResultKicker">RESULT</p><h2 id="missionResultTitle">優典の記録</h2></div><strong id="missionResultScore">0 CLEAR</strong></div><p id="missionResultSummary">ラストサマー・ルーキー · 0 XP</p><div id="missionResultList"></div><p class="mission-result-note" id="missionResultNote">この端末内に保存された記録です。</p></section>
@@ -225,10 +227,10 @@
         <section class="sync-center-card">
           <p class="kicker dark">FAMILY SYNC</p><h2>家族同期</h2>
           <div class="sync-center-state"><i></i><div><b id="syncCenterLabel">この端末だけ</b><small id="syncCenterDetail">家族コードで接続できます</small></div></div>
-          <button type="button" class="solid-button" id="syncNow">接続・送信する</button>
+          <button type="button" class="solid-button" id="syncNow">最新を受信・送信する</button>
           <p>自動の定期通信はしません。アプリを開いた時、項目を変更した時、このボタンを押した時だけ通信します。</p>
         </section>
-        <section class="sync-center-card" id="exportCard" hidden><p class="kicker dark">TRIP RECORD</p><h2>旅行記録</h2><p>予算、進行、ミッション、買い出し、持ち物、弁当、撮影の現在値をJSONで保存します。</p><button type="button" class="outline-button" id="exportTripRecord">記録を書き出す</button></section>
+        <section class="sync-center-card" id="exportCard" hidden><p class="kicker dark">TRIP RECORD</p><h2>旅行記録</h2><p>家族で読み返せるテキスト版と、全データを保持するJSON版を保存できます。</p><button type="button" class="solid-button" id="exportTripSummary">読みやすい記録を保存</button><button type="button" class="outline-button" id="exportTripRecord">全データをJSONで保存</button></section>
       </div>
     </div>
   </section>
