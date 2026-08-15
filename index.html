@@ -10,9 +10,9 @@
   <meta name="apple-mobile-web-app-title" content="ラストサマー">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./assets/icons/icon-180.png">
-  <link rel="stylesheet" href="./assets/css/style.css?v=6">
-  <link rel="stylesheet" href="./assets/css/last-summer.css?v=6">
-  <script src="./assets/js/app.js?v=6" defer></script>
+  <link rel="stylesheet" href="./assets/css/style.css?v=7">
+  <link rel="stylesheet" href="./assets/css/last-summer.css?v=7">
+  <script src="./assets/js/app.js?v=7" defer></script>
   <title>関家 ラストサマー2026</title>
 </head>
 <body>
@@ -124,19 +124,19 @@
   </section>
 
   <section id="mission" class="screen" aria-hidden="true">
-    <header class="screen-hero mission-header"><div><p class="kicker">KIDS QUEST</p><h1>旅を遊びに<br>変えよう。</h1><p>見つける、手伝う、笑わせる。全75ミッション。</p></div></header>
+    <header class="screen-hero mission-header"><div><p class="kicker" id="missionKicker">KIDS QUEST</p><h1 id="missionHeroTitle">旅を遊びに<br>変えよう。</h1><p id="missionHeroDescription">見つける、手伝う、笑わせる。全75ミッション。</p></div></header>
     <div class="screen-content">
       <section class="mission-hero">
-        <div class="mission-ring" id="missionRing"><div><strong id="kidsXp">0</strong><small>XP</small></div></div>
-        <div class="mission-summary-copy"><div class="mission-summary-head"><p class="kicker">YOUR RANK</p></div><h2 id="missionRank">ラストサマー・ルーキー</h2><p id="missionProgressText">0 / 75 ミッション</p><p id="missionNextRank">あと5個でランクアップ</p><div class="mission-profile-identity"><span>記録中</span><b id="missionPlayerName">優典</b></div></div>
+        <div class="mission-ring" id="missionRing"><div><strong id="kidsXp">0</strong><small id="kidsXpLabel">XP</small></div></div>
+        <div class="mission-summary-copy"><div class="mission-summary-head"><p class="kicker" id="missionRankKicker">YOUR RANK</p></div><h2 id="missionRank">ラストサマー・ルーキー</h2><p id="missionProgressText">0 / 75 ミッション</p><p id="missionNextRank">あと5個でランクアップ</p><div class="mission-profile-identity"><span id="missionModeBadge">記録中</span><b id="missionPlayerName">優典</b></div></div>
         <button type="button" id="toggleMissionResult" class="mission-status-toggle" aria-expanded="false"><span>達成状況を確認</span><i aria-hidden="true">›</i></button>
       </section>
       <div id="missionProfiles" class="mission-profile-tabs" aria-label="メンバー選択"></div>
       <div id="missionCategories" class="mission-tabs" aria-label="ミッションカテゴリ"></div>
-      <section class="mission-result" id="missionResult" hidden><div class="section-title"><div><p class="kicker dark">RESULT</p><h2 id="missionResultTitle">優典の記録</h2></div><strong id="missionResultScore">0 CLEAR</strong></div><p id="missionResultSummary">ラストサマー・ルーキー · 0 XP</p><div id="missionResultList"></div><p class="mission-result-note">この端末内に保存された記録です。</p></section>
+      <section class="mission-result" id="missionResult" hidden><div class="section-title"><div><p class="kicker dark" id="missionResultKicker">RESULT</p><h2 id="missionResultTitle">優典の記録</h2></div><strong id="missionResultScore">0 CLEAR</strong></div><p id="missionResultSummary">ラストサマー・ルーキー · 0 XP</p><div id="missionResultList"></div><p class="mission-result-note" id="missionResultNote">この端末内に保存された記録です。</p></section>
       <div id="missionList" class="mission-grid"></div>
       <button type="button" id="resetMissions" class="danger-link">このメンバーのミッションをリセット</button>
-      <p class="source-note">記録はこの端末内だけに保存されます。今回は短期イベントのため端末間同期は実装していません。</p>
+      <p class="source-note" id="missionStorageNote">記録はこの端末内だけに保存されます。今回は短期イベントのため端末間同期は実装していません。</p>
     </div>
   </section>
 

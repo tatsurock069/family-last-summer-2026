@@ -269,36 +269,68 @@ document.addEventListener('DOMContentLoaded', () => {
     '杏菜':{respect:'おはかで しずかに てをあわせる',choice:'のりたいものを ひとつえらぶ',night:'きれいな ひかりを みつける',sea:'うみでは おとなのそばにいる',shell:'すきな かいがらを みつける',art:'すなで なにかを つくる'},
     '波瑠菜':{respect:'おはかで てをあわせる',choice:'のりたいものを ゆびさす',night:'ぴかぴかを みつける',sea:'うみに こんにちはする',shell:'すきな いろを みつける',laugh:'だれかを にこにこにする'}
   };
+  const preschoolMissionTitles = {
+    'seatbelt':'しーとべるとを かくにんする','own-drink':'じぶんの のみものを もつ','own-bag':'じぶんの かばんを もつ','thank-driver':'うんてん ありがとうを いう','car-song':'くるまで みんなと うたう',
+    'window-find':'まどから みつけたものを はなす','rest-stretch':'きゅうけいで からだを のばす','next-plan':'つぎの よていを おぼえる','keep-clean':'くるまを きれいに する','kind-word':'きょうだいに やさしく いう',
+    'help':'こまっているひとを てつだう','greeting':'えがおで あいさつする','timekeeper':'あつまる じかんを おしえる','weather-watch':'そらの へんかを みつける','best-memory':'きょうの いちばんを はなす',
+    'respect':'おはかで しずかに てを あわせる','quiet-minute':'しずかに いっぷん すごす','family-memory':'かぞくの おもいでを ひとつ きく','grave-help':'おはかまいりを てつだう','day1-departure':'いちにちめの しゅっぱつを もりあげる',
+    'choice':'のりたいものを じぶんで えらぶ','budget-choice':'おかねを かんがえて えらぶ','ikoma-sign':'ゆうえんちの かんばんを みつける','ride-reaction':'のりものの きもちを はなす','sunset':'ゆうやけの いろを みっつ みつける',
+    'night':'きれいな よぞらを みつける','light-count':'よるの ひかりを いつつ さがす','mountain-air':'やまの かぜを かんじる','family-ride':'だれかの ちょうせんを おうえんする','udon-help':'うどんづくりを てつだう',
+    'early-wake':'あさ はやく おきる','load-car':'うみの にもつを ひとつ はこぶ','sea-first-look':'うみを いちばんに みつける','first':'げんきに うみへ むかう','sea':'うみの あんぜんを まもる',
+    'sunscreen':'ひやけどめを ぬる','lifejacket':'あんぜんの どうぐを かくにんする','wave-jump':'なみを いっかい じゃんぷする','shell':'きれいな かいがらを さがす','sea-color':'うみの いろに なまえを つける',
+    'art':'すなはまで さくひんを つくる','sand-message':'すなに なつの ことばを かく','bento-help':'おべんとうの じゅんびを てつだう','hydrate':'じぶんから おみずを のむ','safety-check':'かぞくの げんきを きにかける',
+    'beach-support':'うみで だれかを てつだう','beach-clean':'すなはまの ごみを ひとつ ひろう','family-line':'うみで ななにん ならぶ','cold-check':'さむくなるまえに やすむ','final-look':'うみに さいごの あいさつを する',
+    'support':'ちいさいこを いっかい てつだう','laugh':'かぞくの だれかを わらわせる','photo':'かぞくの いちばんの しゃしんを とる','parent-photo':'おやと ふたりで しゃしんを とる','sibling-photo':'きょうだいで しゃしんに はいる',
+    'compliment':'かぞくの いいところを いう','thank-you':'かぞくに ありがとうを いう','high-five':'きょうだい ぜんいんと はいたっち','cheer':'だれかの ちょうせんを おうえんする','share-snack':'おかしを わけあう',
+    'listen':'かぞくの はなしを さいごまで きく','wait-family':'おくれている かぞくを まつ','family-joke':'かぞくの おもしろい はなしを つくる','team-name':'きょうの かぞくの なまえを きめる','summer-promise':'らいねんの なつに したいことを はなす',
+    'opening-shot':'たびの はじまりを とる','road-audio':'くるまの おはなしを じゅうびょう とる','arrival-talk':'ついたときの ひとことを とる','sunset-movie':'ゆうやけを じゅうびょう とる','ride-movie':'のりものの かおを とる',
+    'night-wide':'よるの けしきを よこで とる','sea-reveal':'うみが みえた しゅんかんを とる','wave-slow':'なみを ひくい ところから とる','lunch-top':'おべんとうを うえから とる','ending-shot':'たびの おわりの ひとことを とる'
+  };
   const missionRanks = ['ラストサマー・ルーキー','発見ハンター','お手伝いスター','山上チャレンジャー','夜景ハンター','サマー・プレイヤー','海の探検員','波乗りチャレンジャー','砂浜クリエイター','家族のムードメーカー','撮影クルー','思いやりリーダー','夏の冒険エース','ラストサマー隊長','関家サマーマスター','完全燃焼マスター'];
+  const preschoolMissionRanks = ['はじめての なつやすみ','はっけん るーきー','おてつだい すたー','やまの ちょうせんたい','よぞらの はんたー','なつの あそびにん','うみの たんけんたい','なみの ちょうせんたい','すなはま くりえいたー','かぞくの にんきもの','さつえい くるー','おもいやり りーだー','なつの ぼうけん えーす','らすとさまー たいちょう','せきけの なつめいじん','なつの だいめいじん'];
   let activeProfile = storage.get('mission-profile', '優典'); let missionDone = storage.get('missions', {});
   let activeMissionCategory = 'all';
   function profileState(name) { if (!missionDone[name]) missionDone[name] = {}; return missionDone[name]; }
   function missionForProfile(item) {
     const young = missionProfiles[activeProfile]?.young;
-    return {...item,title:profileTitleOverrides[activeProfile]?.[item.id] || item.title,note:young ? `おとなといっしょに。${item.note}` : item.note};
+    const title = profileTitleOverrides[activeProfile]?.[item.id] || (young ? preschoolMissionTitles[item.id] : item.title);
+    return {...item,title,note:young ? `おとなと いっしょに。${item.note}` : item.note};
   }
   function missionXp(item) { return item.category === 'common' ? 10 : item.category === 'creator' ? 15 : 20; }
   function renderMissions() {
+    const preschool = Boolean(missionProfiles[activeProfile]?.young); const assisted = activeProfile === '波瑠菜';
     const tabs = document.getElementById('missionProfiles'); tabs.innerHTML = Object.keys(missionProfiles).map((name) => `<button type="button" class="${name === activeProfile ? 'active' : ''}" data-profile="${name}">${name}</button>`).join('');
     tabs.querySelectorAll('[data-profile]').forEach((button) => button.addEventListener('click', () => { activeProfile = button.dataset.profile; storage.set('mission-profile', activeProfile); renderMissions(); }));
-    const categoryTabs = document.getElementById('missionCategories'); categoryTabs.innerHTML = `<button type="button" class="${activeMissionCategory === 'all' ? 'active' : ''}" data-mission-category="all">すべて</button>${Object.entries(missionCategories).map(([key,label]) => `<button type="button" class="${activeMissionCategory === key ? 'active' : ''}" data-mission-category="${key}">${label}</button>`).join('')}`;
+    const categoryLabels = preschool ? {all:'すべて',common:'どこでも',day1:'いちにちめ',day2:'ふつかめ',family:'かぞく',creator:'さつえい'} : {all:'すべて',...missionCategories};
+    const categoryTabs = document.getElementById('missionCategories'); categoryTabs.innerHTML = `<button type="button" class="${activeMissionCategory === 'all' ? 'active' : ''}" data-mission-category="all">${categoryLabels.all}</button>${Object.keys(missionCategories).map((key) => `<button type="button" class="${activeMissionCategory === key ? 'active' : ''}" data-mission-category="${key}">${categoryLabels[key]}</button>`).join('')}`;
     categoryTabs.querySelectorAll('[data-mission-category]').forEach((button) => button.addEventListener('click', () => { activeMissionCategory = button.dataset.missionCategory; renderMissions(); }));
     const state = profileState(activeProfile); const visibleItems = missionItems.filter((item) => activeMissionCategory === 'all' || item.category === activeMissionCategory).map(missionForProfile);
-    document.getElementById('mission').classList.toggle('toddler-mode', Boolean(missionProfiles[activeProfile]?.young));
-    document.getElementById('missionList').innerHTML = visibleItems.map((item) => `<label class="mission-card ${state[item.id] ? 'completed' : ''}"><input type="checkbox" data-mission-id="${item.id}" ${state[item.id] ? 'checked' : ''}><span class="mission-emoji">${item.emoji}</span><b>${escapeHTML(item.title)}</b><small>+${missionXp(item)} XP</small></label>`).join('');
-    document.querySelectorAll('[data-mission-id]').forEach((input) => input.addEventListener('change', () => { const before = missionItems.filter((item) => state[item.id]).length; state[input.dataset.missionId] = input.checked; storage.set('missions', missionDone); renderMissions(); if (input.checked) toast(Math.floor((before + 1) / 5) > Math.floor(before / 5) ? 'ランクアップ！' : 'ミッションクリア！'); }));
+    document.getElementById('mission').classList.toggle('toddler-mode', preschool);
+    document.getElementById('missionKicker').textContent = preschool ? 'こども みっしょん' : 'KIDS QUEST';
+    document.getElementById('missionHeroTitle').innerHTML = preschool ? 'たびを あそびに<br>かえよう。' : '旅を遊びに<br>変えよう。';
+    document.getElementById('missionHeroDescription').textContent = assisted ? 'みつけたら おとなに おしえてね。ぜんぶで75こ。' : preschool ? 'みつける、てつだう、たのしむ。ぜんぶで75こ。' : '見つける、手伝う、笑わせる。全75ミッション。';
+    document.getElementById('missionRankKicker').textContent = preschool ? 'いまの らんく' : 'YOUR RANK'; document.getElementById('kidsXpLabel').textContent = preschool ? 'ぽいんと' : 'XP';
+    document.getElementById('missionModeBadge').textContent = assisted ? 'おとなと いっしょ' : preschool ? 'じぶんの きろく' : '記録中';
+    document.getElementById('missionResultKicker').textContent = preschool ? 'けっか' : 'RESULT';
+    document.getElementById('missionList').innerHTML = visibleItems.map((item) => `<label class="mission-card ${state[item.id] ? 'completed' : ''}"><input type="checkbox" data-mission-id="${item.id}" ${state[item.id] ? 'checked' : ''}><span class="mission-emoji">${item.emoji}</span><b>${escapeHTML(item.title)}</b><small>${assisted ? 'おとなと いっしょ' : `+${missionXp(item)} ${preschool ? 'ぽいんと' : 'XP'}`}</small></label>`).join('');
+    document.querySelectorAll('[data-mission-id]').forEach((input) => input.addEventListener('change', () => { const before = missionItems.filter((item) => state[item.id]).length; state[input.dataset.missionId] = input.checked; storage.set('missions', missionDone); renderMissions(); if (input.checked) toast(Math.floor((before + 1) / 5) > Math.floor(before / 5) ? (preschool ? 'らんくあっぷ！' : 'ランクアップ！') : (preschool ? `${activeProfile} できた！` : 'ミッションクリア！')); }));
     const cleared = missionItems.filter((item) => state[item.id]).length; const rankIndex = Math.min(Math.floor(cleared / 5), missionRanks.length - 1); const nextAt = Math.min(75, (rankIndex + 1) * 5);
     const completedItems = missionItems.filter((item) => state[item.id]); const xp = completedItems.reduce((sum,item) => sum + missionXp(item), 0);
+    const rankName = (preschool ? preschoolMissionRanks : missionRanks)[rankIndex];
     document.getElementById('kidsXp').textContent = xp; document.getElementById('missionPlayerName').textContent = activeProfile;
-    document.getElementById('missionRank').textContent = missionRanks[rankIndex]; document.getElementById('missionProgressText').textContent = `${cleared} / ${missionItems.length} ミッション`;
-    document.getElementById('missionNextRank').textContent = cleared === missionItems.length ? '全ミッションクリア！' : `あと${nextAt - cleared}個でランクアップ`;
+    document.getElementById('missionRank').textContent = rankName; document.getElementById('missionProgressText').textContent = preschool ? `${cleared} / ${missionItems.length} できた` : `${cleared} / ${missionItems.length} ミッション`;
+    document.getElementById('missionNextRank').textContent = cleared === missionItems.length ? (preschool ? 'ぜんぶ できた！' : '全ミッションクリア！') : preschool ? `あと${nextAt - cleared}こで らんくあっぷ` : `あと${nextAt - cleared}個でランクアップ`;
     document.getElementById('missionRing').style.setProperty('--mission-progress', `${(cleared % 5) / 5 * 360}deg`);
-    document.getElementById('missionResultTitle').textContent = `${activeProfile}の記録`; document.getElementById('missionResultScore').textContent = `${cleared} CLEAR`; document.getElementById('missionResultSummary').textContent = `${missionRanks[rankIndex]} · ${xp} XP`;
-    document.getElementById('missionResultList').innerHTML = completedItems.length ? completedItems.map((item) => `<span>${item.emoji} ${escapeHTML(missionForProfile(item).title)}</span>`).join('') : '<p>まだ達成したミッションはありません。</p>';
+    document.getElementById('missionResultTitle').textContent = preschool ? `${activeProfile}の きろく` : `${activeProfile}の記録`; document.getElementById('missionResultScore').textContent = preschool ? `${cleared} できた` : `${cleared} CLEAR`; document.getElementById('missionResultSummary').textContent = preschool ? `${rankName} · ${xp} ぽいんと` : `${rankName} · ${xp} XP`;
+    document.getElementById('missionResultList').innerHTML = completedItems.length ? completedItems.map((item) => `<span>${item.emoji} ${escapeHTML(missionForProfile(item).title)}</span>`).join('') : `<p>${preschool ? 'まだ できたものは ないよ。' : 'まだ達成したミッションはありません。'}</p>`;
+    document.getElementById('missionResultNote').textContent = assisted ? 'できたら おとなと いっしょに ちぇっくしよう。' : preschool ? 'この がめんを おうちのひとに みせよう。' : 'この端末内に保存された記録です。';
+    document.getElementById('toggleMissionResult').querySelector('span').textContent = missionResult.hidden ? (preschool ? 'できたものを みる' : '達成状況を確認') : (preschool ? 'できたものを とじる' : '達成状況を閉じる');
+    document.getElementById('resetMissions').textContent = preschool ? `${activeProfile}の みっしょんを やりなおす` : 'このメンバーのミッションをリセット';
+    document.getElementById('missionStorageNote').textContent = preschool ? 'きろくは この すまほの なかに のこるよ。ほかの すまほとは つながらないよ。' : '記録はこの端末内だけに保存されます。今回は短期イベントのため端末間同期は実装していません。';
   }
   const missionResult = document.getElementById('missionResult');
-  document.getElementById('toggleMissionResult').addEventListener('click', (event) => { missionResult.hidden = !missionResult.hidden; event.currentTarget.setAttribute('aria-expanded', String(!missionResult.hidden)); event.currentTarget.querySelector('span').textContent = missionResult.hidden ? '達成状況を確認' : '達成状況を閉じる'; });
-  document.getElementById('resetMissions').addEventListener('click', () => { if (!window.confirm(`${activeProfile}のミッションをすべてリセットしますか？`)) return; missionDone[activeProfile] = {}; storage.set('missions', missionDone); renderMissions(); toast('ミッションをリセットしました'); });
+  document.getElementById('toggleMissionResult').addEventListener('click', (event) => { missionResult.hidden = !missionResult.hidden; event.currentTarget.setAttribute('aria-expanded', String(!missionResult.hidden)); const preschool = Boolean(missionProfiles[activeProfile]?.young); event.currentTarget.querySelector('span').textContent = missionResult.hidden ? (preschool ? 'できたものを みる' : '達成状況を確認') : (preschool ? 'できたものを とじる' : '達成状況を閉じる'); });
+  document.getElementById('resetMissions').addEventListener('click', () => { const preschool = Boolean(missionProfiles[activeProfile]?.young); if (!window.confirm(preschool ? `${activeProfile}の みっしょんを ぜんぶ やりなおす？` : `${activeProfile}のミッションをすべてリセットしますか？`)) return; missionDone[activeProfile] = {}; storage.set('missions', missionDone); renderMissions(); toast(preschool ? 'みっしょんを やりなおしたよ' : 'ミッションをリセットしました'); });
 
   // Packing checklist
   const packingItems = {

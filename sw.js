@@ -1,11 +1,11 @@
 const CACHE_PREFIX = 'seki-last-summer-2026-app-';
-const CACHE = CACHE_PREFIX + 'v6';
+const CACHE = CACHE_PREFIX + 'v7';
 const APP_SHELL = [
   './',
   './index.html',
-  './assets/css/style.css?v=6',
-  './assets/css/last-summer.css?v=6',
-  './assets/js/app.js?v=6',
+  './assets/css/style.css?v=7',
+  './assets/css/last-summer.css?v=7',
+  './assets/js/app.js?v=7',
   './assets/images/destinations/ikoma-attraction.jpg',
   './assets/images/destinations/wakasa-wada-beach.jpg',
   './assets/images/shot-samples/composition-last-summer.jpg',
