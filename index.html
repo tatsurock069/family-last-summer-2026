@@ -10,9 +10,9 @@
   <meta name="apple-mobile-web-app-title" content="ラストサマー">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./assets/icons/icon-180.png">
-  <link rel="stylesheet" href="./assets/css/style.css?v=9">
-  <link rel="stylesheet" href="./assets/css/last-summer.css?v=9">
-  <script src="./assets/js/app.js?v=9" defer></script>
+  <link rel="stylesheet" href="./assets/css/style.css?v=12">
+  <link rel="stylesheet" href="./assets/css/last-summer.css?v=12">
+  <script src="./assets/js/app.js?v=12" defer></script>
   <title>関家 ラストサマー2026</title>
 </head>
 <body>
@@ -113,6 +113,10 @@
     <header class="screen-hero shoot-header"><div><p class="kicker">SHOT DIRECTOR</p><h1>旅を、一本の<br>映画にする。</h1><p>何を、どの構図で撮るか。現場で迷わない撮影指示書。</p></div></header>
     <div class="screen-content">
       <section class="progress-panel dark-panel"><div><p class="kicker">SHOOTING PROGRESS</p><strong id="shootProgress">0 / 0</strong></div><div class="progress"><i id="shootProgressBar"></i></div></section>
+      <section class="capture-queue" id="captureQueue">
+        <div class="capture-queue-head"><div><p class="kicker dark" id="captureQueueKicker">MISSION × SHOT</p><h2 id="captureQueueTitle">撮ってほしいもの</h2></div><strong id="captureQueueCount">0</strong></div>
+        <div id="captureRequestList"></div>
+      </section>
       <details class="composition-guide" open>
         <summary class="section-title"><div><p class="kicker dark">COMPOSITION SAMPLE</p><h2>この画角をまねる</h2></div><span>開閉 ＋</span></summary>
         <div class="last-summer-composition"><img src="./assets/images/shot-samples/composition-last-summer.jpg" alt="遊園地・墓参り・海・夜景を題材にした4種類の撮影構図イラスト" loading="lazy"><div class="composition-key"><p><b>W｜ワイド</b><span>景色を主役に。家族は小さく下1/3へ。</span></p><p><b>C｜寄り</b><span>手元や表情へ近づき、背景を整理。</span></p><p><b>M｜動き</b><span>進む先に余白を残し、後ろから追う。</span></p><p><b>V｜縦</b><span>人物を左右1/3へ。光と奥行きを入れる。</span></p></div></div>
