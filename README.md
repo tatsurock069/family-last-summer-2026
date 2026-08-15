@@ -1,0 +1,43 @@
+# family-last-summer-2026
+
+2026年8月15日〜16日の「関家 ラストサマー2026」専用PWAです。家族7人で、DAY1は墓参りと生駒山上遊園地ナイター、DAY2は若狭和田ビーチを楽しむための実行アプリです。
+
+## 既存アプリとの分離
+
+このアプリは `family-trip-2026` を参考にした独立アプリです。既存アプリのリポジトリ、公開URL、旅行データには変更を加えていません。
+
+- 新しい公開URL想定: `https://tatsurock069.github.io/family-last-summer-2026/`
+- localStorage接頭辞: `seki-last-summer-2026:`
+- Service Workerキャッシュ接頭辞: `seki-last-summer-2026-app-`
+- manifest ID: `/family-last-summer-2026/`
+
+## 主な機能
+
+- 日時に連動する「次の予定」とGoogle Mapsリンク
+- DAY1／DAY2の折りたたみ旅程
+- 25,000円チャレンジ、実費・残額のリアルタイム表示
+- 実費明細の追加、後編集、削除
+- DAY1／DAY2向け買い出しチェックと任意項目追加
+- DAY1／DAY2の持ち物チェック
+- 家族Vlog用18項目の撮影チェックとフィルター
+- 子ども5人別、各6項目に絞ったミッション
+- 端末内保存、PWA、オフライン表示
+
+端末間同期は短期イベント向けの規模を優先して実装していません。記録は各端末のブラウザ内に保存されます。
+
+## ローカル確認
+
+```sh
+python3 -m http.server 8000
+```
+
+ブラウザで `http://localhost:8000/` を開きます。`file://` 直開きではService Workerは動作しません。
+
+## 公開方法
+
+1. `family-last-summer-2026` という独立GitHubリポジトリを作る
+2. このディレクトリの内容を新リポジトリへコミットして `main` にpushする
+3. GitHub Pagesを `main` / `/ (root)` で有効にする
+4. 公開URLでPWA更新、オフライン表示、保存データを確認する
+
+既存の `family-trip-2026` リポジトリへpushしないでください。

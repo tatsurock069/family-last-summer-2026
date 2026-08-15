@@ -1,0 +1,19 @@
+{
+  "name": "関家 ラストサマー2026",
+  "short_name": "ラストサマー",
+  "description": "家族7人で夏休み最後の2日間をやり切るための旅行実行アプリ",
+  "id": "/family-last-summer-2026/",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#fff8ec",
+  "theme_color": "#102c52",
+  "lang": "ja",
+  "categories": ["travel", "lifestyle"],
+  "icons": [
+    {"src":"./assets/icons/icon-192.png","sizes":"192x192","type":"image/png"},
+    {"src":"./assets/icons/icon-512.png","sizes":"512x512","type":"image/png"}
+  ]
+}

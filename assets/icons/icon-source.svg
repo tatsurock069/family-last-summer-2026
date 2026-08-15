@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f47a4f"/>
+      <stop offset="0.46" stop-color="#704c7b"/>
+      <stop offset="1" stop-color="#102c52"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#56d1d0"/>
+      <stop offset="1" stop-color="#087fa4"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#sky)"/>
+  <circle cx="362" cy="146" r="72" fill="#ffbf54"/>
+  <path d="M0 294C77 252 136 338 215 297s126-41 191 1c43 28 72 18 106-8v222H0Z" fill="url(#sea)"/>
+  <path d="M0 340c72-35 136 40 218 3s142-33 213 6c30 16 55 9 81-9" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width="14"/>
+  <text x="52" y="118" fill="#fff" font-family="Arial,sans-serif" font-size="38" font-weight="800" letter-spacing="8">LAST</text>
+  <text x="48" y="238" fill="#fff" font-family="Arial,sans-serif" font-size="112" font-weight="900" letter-spacing="-5">SUMMER</text>
+  <text x="58" y="452" fill="#fff" font-family="Arial,sans-serif" font-size="72" font-weight="900" letter-spacing="5">2026</text>
+</svg>
