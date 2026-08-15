@@ -584,7 +584,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('actualTotal').textContent = money(total); document.getElementById('budgetRemaining').textContent = `${over ? '−' : ''}${money(Math.abs(remaining))}`;
     document.getElementById('challengeRemaining').textContent = isToddlerUser() ? (over ? `${money(total - BUDGET)} おおいよ` : `のこり ${money(remaining)}`) : over ? `${yen(total - BUDGET)} オーバー` : `残り ${yen(remaining)}`;
     document.getElementById('challengePercent').textContent = `${Math.round(total / BUDGET * 100)}%`; document.getElementById('challengeRing').style.setProperty('--progress', `${percentage}%`); document.getElementById('budgetTrack').style.width = `${percentage}%`;
-    const status = isToddlerUser() ? 'おかねは おとなと いっしょに みよう。' : over ? '基準予算を超過。内容を確認しよう。' : total >= 20000 ? 'ゴール目前。残額を意識して使おう。' : total >= 10000 ? 'いいペース。体験予算は守れている？' : 'いいスタート。体験予算を守ろう。';
+    const status = isToddlerUser() ? 'おかねは おとなが みるよ。' : over ? `基準予算を ${yen(total - BUDGET)} 超過` : `実費 ${yen(total)} / 基準 ${yen(BUDGET)}`;
     document.getElementById('budgetStatusText').textContent = status; document.getElementById('challengeMessage').textContent = status;
   }
   function resetExpenseForm() {
@@ -624,7 +624,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setText('.challenge-copy p','25,000えん ちゃれんじ'); setText('.challenge-card > button','おかねを みる →');
     setText('.editorial-head .kicker','あしたの おたのしみ'); setText('.editorial-head h2','うみへ いこう。');
     setText('[data-stage-day="day2"] .feature-index','ふつかめ'); setText('[data-stage-day="day2"] .feature-copy b','わかさわだの うみ'); setText('[data-stage-day="day2"] .feature-copy small','つかれたら やすもう。');
-    setText('.last-guide-story .kicker','いくところ'); setHTML('.last-guide-story h2','うみのことを<br>みてみよう。'); setText('.last-guide-story button','うみの しょうかい →'); setText('.home-motto','ごはんは おうちから。あそびは いっぱい。');
+    setText('.last-guide-story .kicker','いくところ'); setHTML('.last-guide-story h2','うみのことを<br>みてみよう。'); setText('.last-guide-story button','うみの しょうかい →'); setText('.home-motto','8がつ15にち・16にち。7にん。');
     document.querySelectorAll('#home img').forEach((image) => { image.alt = 'わかさわだの うみ'; });
 
     setText('#plan .screen-hero .kicker','あした'); setText('#plan .screen-hero h1','あしたの よてい'); setText('#plan .screen-hero p:last-child','つかれたら やすもう。');

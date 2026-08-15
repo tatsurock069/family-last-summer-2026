@@ -10,12 +10,12 @@
   <meta name="apple-mobile-web-app-title" content="ラストサマー">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./assets/icons/icon-180.png">
-  <link rel="stylesheet" href="./assets/css/style.css?v=16">
-  <link rel="stylesheet" href="./assets/css/last-summer.css?v=16">
+  <link rel="stylesheet" href="./assets/css/style.css?v=17">
+  <link rel="stylesheet" href="./assets/css/last-summer.css?v=17">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
-  <script src="./assets/js/sync-config.js?v=16" defer></script>
-  <script src="./assets/js/sync.js?v=16" defer></script>
-  <script src="./assets/js/app.js?v=16" defer></script>
+  <script src="./assets/js/sync-config.js?v=17" defer></script>
+  <script src="./assets/js/sync.js?v=17" defer></script>
+  <script src="./assets/js/app.js?v=17" defer></script>
   <title>関家 ラストサマー2026</title>
 </head>
 <body>
@@ -46,7 +46,7 @@
       </article>
 
       <section class="challenge-card">
-        <div class="challenge-copy"><p>25,000円チャレンジ</p><strong id="challengeRemaining">残り 25,000円</strong><small id="challengeMessage">体験は削らず、食費をスマートに。</small></div>
+        <div class="challenge-copy"><p>25,000円チャレンジ</p><strong id="challengeRemaining">残り 25,000円</strong><small id="challengeMessage">実費 0円 / 基準 25,000円</small></div>
         <div class="challenge-ring" id="challengeRing"><span id="challengePercent">0%</span></div>
         <button type="button" data-go="more" data-subview="budgetView">予算・実費を開く →</button>
       </section>
@@ -64,7 +64,7 @@
         <div class="story-overlay"></div>
         <div class="story-copy"><p class="kicker">DESTINATION GUIDE</p><h2>行く前に知ると、<br>もっと面白い。</h2><button type="button" class="glass-button" data-go="guide">観光地紹介を見る →</button></div>
       </section>
-      <p class="home-motto">食費を削って、体験を削らない。</p>
+      <p class="home-motto">2026年8月15日（土）〜16日（日）・家族7人</p>
     </div>
   </section>
 
@@ -100,7 +100,7 @@
   </section>
 
   <section id="shopping" class="screen" aria-hidden="true">
-    <header class="screen-hero shop-hero"><div><p class="kicker">SMART SHOPPING</p><h1>買い出し</h1><p>食費は小さく、楽しさは大きく。</p></div></header>
+    <header class="screen-hero shop-hero"><div><p class="kicker">SMART SHOPPING</p><h1>買い出し</h1><p>購入予定と買い忘れを確認。</p></div></header>
     <div class="screen-content">
       <section class="progress-panel"><div><p class="kicker dark">SHOPPING PROGRESS</p><strong id="shoppingProgressLabel">0 / 0</strong></div><div class="progress"><i id="shoppingProgressBar"></i></div></section>
       <div id="shoppingList"></div>
@@ -188,7 +188,7 @@
         <section class="budget-summary last-budget-summary">
           <p class="kicker">25,000 YEN CHALLENGE</p><div class="budget-total"><span>基準予算</span><strong>25,000円</strong></div>
           <div class="budget-actual"><div><span>実支出</span><b id="actualTotal">0円</b></div><div><span>残額</span><b id="budgetRemaining">25,000円</b></div></div>
-          <div class="challenge-track"><i id="budgetTrack"></i></div><p id="budgetStatusText">いいスタート。体験予算を守ろう。</p>
+          <div class="challenge-track"><i id="budgetTrack"></i></div><p id="budgetStatusText">実費 0円 / 基準 25,000円</p>
         </section>
         <section class="planned-budget"><div class="section-title"><div><p class="kicker dark">PLAN</p><h2>予算の目安</h2></div><strong>合計 25,000円</strong></div><div id="plannedBudgetList"></div></section>
         <section class="expense-section"><div class="section-title"><div><p class="kicker dark">ACTUAL</p><h2>実費明細</h2></div></div><div id="expenseList"></div></section>
